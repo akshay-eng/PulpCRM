@@ -80,31 +80,114 @@ index 6212121..3088e2a 100644
 +import AskPanel from '@/components/Chat/AskPanel.vue'
 +import { askPanelOpen } from '@/composables/ask'
  </script>
-diff --git a/frontend/src/components/Settings/Settings.vue b/frontend/src/components/Settings/Settings.vue
-index a9b87b4..7504cd9 100644
---- a/frontend/src/components/Settings/Settings.vue
-+++ b/frontend/src/components/Settings/Settings.vue
-@@ -65,6 +65,7 @@ import InviteUserPage from '@/components/Settings/InviteUserPage.vue'
- import ProfilePage from '@/components/Settings/Profile/ProfilePage.vue'
- import PreferencesSettings from '@/components/Settings/PreferencesSettings.vue'
- import WhatsAppSettings from '@/components/Settings/WhatsAppSettings.vue'
-+import ConnectionsSettings from '@/components/Settings/ConnectionsSettings.vue'
- import ERPNextSettings from '@/components/Settings/ERPNextSettings.vue'
- import LeadSyncSourcePage from '@/components/Settings/LeadSyncing/LeadSyncSourcePage.vue'
- import DefaultsSettings from '@/components/Settings/DefaultsSettings.vue'
-@@ -222,6 +223,12 @@ const tabs = computed(() => {
-           component: markRaw(WhatsAppSettings),
-           condition: () => isWhatsappInstalled.value && isManager(),
-         },
-+        {
-+          label: __('Connections'),
-+          icon: 'plug',
-+          component: markRaw(ConnectionsSettings),
-+          condition: () => isManager(),
-+        },
-         {
-           label: __('ERPNext'),
-           icon: ERPNextIcon,
+diff --git a/frontend/src/components/Settings/WhatsAppSettings.vue b/frontend/src/components/Settings/WhatsAppSettings.vue
+index db46a4b..5dee556 100644
+--- a/frontend/src/components/Settings/WhatsAppSettings.vue
++++ b/frontend/src/components/Settings/WhatsAppSettings.vue
+@@ -1,6 +1,102 @@
+ <template>
+-  <SettingsPage doctype="WhatsApp Settings" class="p-8" />
++  <div class="flex h-full flex-col">
++    <!-- Connection summary + the entry point for adding one. -->
++    <div class="flex items-start justify-between gap-4 px-8 pt-8">
++      <div class="flex flex-wrap gap-2">
++        <div
++          v-for="c in channels"
++          :key="c.id"
++          class="flex items-center gap-2 rounded-md border px-3 py-1.5"
++          :class="c.active
++            ? 'border-orange-300 bg-orange-50'
++            : 'border-outline-gray-2 bg-surface-white'"
++        >
++          <component :is="c.icon" class="h-4 w-4 text-ink-gray-7" />
++          <span class="text-sm font-medium text-ink-gray-8">{{ c.label }}</span>
++          <Badge :theme="c.theme" variant="subtle">{{ c.status }}</Badge>
++          <button
++            v-if="c.configured && !c.active"
++            class="text-xs text-ink-gray-5 underline hover:text-ink-gray-8"
++            @click="useChannel(c.id)"
++          >{{ __('Use this') }}</button>
++          <button
++            v-if="c.id === 'openwa' && c.configured"
++            class="text-xs text-ink-gray-5 underline hover:text-ink-gray-8"
++            @click="showOpenWA = true"
++          >{{ __('Edit') }}</button>
++        </div>
++      </div>
++
++      <Button variant="solid" :label="__('Add connection')" @click="showChoice = true">
++        <template #prefix><LucidePlus class="h-4 w-4" /></template>
++      </Button>
++    </div>
++
++    <!-- Meta keeps its existing configuration form untouched. -->
++    <SettingsPage doctype="WhatsApp Settings" class="p-8" />
++
++    <ChooseProviderDialog v-model="showChoice" @choose="onChoose" />
++    <OpenWADialog v-model="showOpenWA" @connected="load" />
++  </div>
+ </template>
++
+ <script setup>
+ import SettingsPage from '@/components/Settings/SettingsPage.vue'
++import ChooseProviderDialog from '@/components/Settings/WhatsApp/ChooseProviderDialog.vue'
++import OpenWADialog from '@/components/Settings/WhatsApp/OpenWADialog.vue'
++import { Button, Badge, call, toast } from 'frappe-ui'
++import { ref, computed, onMounted } from 'vue'
++import LucidePlus from '~icons/lucide/plus'
++import LucideBadgeCheck from '~icons/lucide/badge-check'
++import LucideServer from '~icons/lucide/server'
++
++const data = ref({})
++const showChoice = ref(false)
++const showOpenWA = ref(false)
++
++const channels = computed(() => {
++  const o = data.value.openwa || {}
++  const m = data.value.meta || {}
++  const active = data.value.active_channel
++  const openwaReady = Boolean(o.has_api_key && o.session_id)
++  return [
++    {
++      id: 'meta', label: __('Meta Cloud API'), icon: LucideBadgeCheck,
++      configured: Boolean(m.accounts?.length),
++      active: active === 'meta',
++      status: active === 'meta' ? __('Active') : m.active ? __('Ready') : __('Not set up'),
++      theme: active === 'meta' ? 'orange' : m.active ? 'green' : 'gray',
++    },
++    {
++      id: 'openwa', label: __('OpenWA'), icon: LucideServer,
++      configured: openwaReady,
++      active: active === 'openwa',
++      status: active === 'openwa' ? __('Active') : openwaReady ? __('Ready') : __('Not set up'),
++      theme: active === 'openwa' ? 'orange' : openwaReady ? 'green' : 'gray',
++    },
++  ]
++})
++
++async function load() {
++  data.value = await call('baton.api.connections.get_connections')
++}
++
++function onChoose(id) {
++  // Meta keeps doing exactly what it did before: the form below is its setup.
++  if (id === 'meta') {
++    useChannel('meta')
++    toast.info(__('Configure your Meta account in the settings below.'))
++    return
++  }
++  showOpenWA.value = true
++}
++
++async function useChannel(id) {
++  data.value = await call('baton.api.connections.set_active_channel', { channel: id })
++  toast.success(__('WhatsApp now goes through {0}', [
++    id === 'openwa' ? 'OpenWA' : __('Meta Cloud API'),
++  ]))
++}
++
++onMounted(load)
+ </script>
 diff --git a/frontend/src/router.js b/frontend/src/router.js
 index 1aec80c..14d46b0 100644
 --- a/frontend/src/router.js

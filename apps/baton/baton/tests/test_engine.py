@@ -62,6 +62,21 @@ def _delete_test_workflows(*prefixes):
             frappe.delete_doc("Baton Workflow", name, force=True, ignore_permissions=True)
     frappe.db.commit()
 
+
+def _delete_test_leads(*lead_names):
+    """The engine commits mid-test, so FrappeTestCase's rollback cannot remove
+    leads these tests create. Left alone they accumulate in the real CRM."""
+    for nm in lead_names:
+        for lead in frappe.get_all("CRM Lead", filters={"lead_name": nm}, pluck="name"):
+            for dt in ("WhatsApp Message", "Baton Conversation State",
+                       "Baton Qualification Result"):
+                if not frappe.db.exists("DocType", dt):
+                    continue
+                for row in frappe.get_all(dt, filters={"reference_name": lead}, pluck="name"):
+                    frappe.delete_doc(dt, row, force=True, ignore_permissions=True)
+            frappe.delete_doc("CRM Lead", lead, force=True, ignore_permissions=True)
+    frappe.db.commit()
+
 class TestSafeEval(FrappeTestCase):
     def test_extended_builtins_available(self):
         """bool/len are not in Frappe's safe_eval whitelist; we add them."""
@@ -230,4 +245,5 @@ class TestAuditTrail(FrappeTestCase):
 
 
 def tearDownModule():
+    _delete_test_leads('Engine Test')
     _delete_test_workflows('T ')
