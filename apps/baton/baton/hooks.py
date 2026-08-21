@@ -49,3 +49,9 @@ scheduler_events = {
 override_whitelisted_methods = {
     "frappe_whatsapp.utils.webhook.webhook": "baton.api.webhook.webhook",
 }
+
+override_doctype_class = {
+    # Route outgoing WhatsApp through OpenWA when configured, without editing
+    # the vendored frappe_whatsapp app.
+    "WhatsApp Message": "baton.overrides.whatsapp_message.BatonWhatsAppMessage",
+}

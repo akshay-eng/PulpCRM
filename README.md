@@ -23,6 +23,8 @@ upgradable.
 | Natural-language data chat (permission-safe, never SQL) | ✅ tested |
 | Follow-up ladder, generated as an editable workflow | ✅ |
 | WhatsApp webhook signature verification (fixes an upstream hole) | ✅ tested |
+| **OpenWA connector** — self-hosted WhatsApp bridge, HMAC-verified | ✅ live-tested |
+| **Connections UI** — pick Meta or OpenWA, configure and test in the CRM | ✅ |
 | Meta Lead Ads ingestion | ⏳ native to Frappe CRM; hardening pending |
 | Deal monitoring, escalation, MCP, agent builder, dashboard | ⏳ not started |
 
@@ -96,8 +98,23 @@ Frappe `Password` fields via the UI:
 | Setting | Where |
 |---|---|
 | LLM provider, model, API key | `Baton AI Model` |
-| Meta App Secret (webhook verification) | `Baton Settings → Meta` |
-| WhatsApp token, phone ID, WABA ID | `WhatsApp Account` |
+| WhatsApp channel, credentials, webhook | **Connections** page in the CRM (`/crm/connections`) |
+
+### Choosing a WhatsApp channel
+
+| | Meta Cloud API | OpenWA |
+|---|---|---|
+| Official | yes | no — account-ban risk |
+| 24-hour window / templates | enforced | not applicable |
+| Sees replies you type on your own phone | **no** | **yes** |
+| Setup | business verification | run a container, scan a QR |
+
+That third row decides it for most users. Baton's core promise is that the AI
+goes quiet the moment a human steps in. On Meta, a message you send from your
+own phone never reaches the API, so handoff detection is partial. OpenWA rides
+the real account and sees it, which makes the guarantee complete.
+
+Both are supported; switch between them on the Connections page.
 
 Baton ships **switched off**. `Baton Settings → ai_enabled` is the global kill
 switch, with per-channel `Auto` / `Draft` / `Off` on top.

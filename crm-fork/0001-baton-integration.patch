@@ -13,18 +13,19 @@ index 62719b9..d7ca5e6 100644
      "dompurify": "^3.3.3",
      "frappe-ui": "1.0.0-beta.29",
 diff --git a/frontend/src/components/Layouts/AppSidebar.vue b/frontend/src/components/Layouts/AppSidebar.vue
-index 9b36dc2..8aa774e 100644
+index 9b36dc2..52aa5be 100644
 --- a/frontend/src/components/Layouts/AppSidebar.vue
 +++ b/frontend/src/components/Layouts/AppSidebar.vue
-@@ -174,6 +174,7 @@
+@@ -174,6 +174,8 @@
  <script setup>
  import BrushCleaningIcon from '~icons/lucide/brush-cleaning'
  import LucideLayoutDashboard from '~icons/lucide/layout-dashboard'
 +import LucideWorkflow from '~icons/lucide/workflow'
++import LucidePlug from '~icons/lucide/plug'
  import CRMLogo from '@/components/Icons/CRMLogo.vue'
  import InviteIcon from '@/components/Icons/InviteIcon.vue'
  import ConvertIcon from '@/components/Icons/ConvertIcon.vue'
-@@ -292,6 +293,11 @@ const links = [
+@@ -292,6 +294,16 @@ const links = [
      icon: PhoneIcon,
      to: 'Call Logs',
    },
@@ -33,17 +34,27 @@ index 9b36dc2..8aa774e 100644
 +    icon: LucideWorkflow,
 +    to: 'Workflows',
 +  },
++  {
++    label: 'Connections',
++    icon: LucidePlug,
++    to: 'Connections',
++  },
  ]
  
  const allViews = computed(() => {
 diff --git a/frontend/src/router.js b/frontend/src/router.js
-index 1aec80c..14d46b0 100644
+index 1aec80c..6a13085 100644
 --- a/frontend/src/router.js
 +++ b/frontend/src/router.js
-@@ -102,6 +102,16 @@ const routes = [
+@@ -102,6 +102,21 @@ const routes = [
      name: 'Call Logs',
      component: () => import('@/pages/CallLogs.vue'),
    },
++  {
++    path: '/connections',
++    name: 'Connections',
++    component: () => import('@/pages/Connections.vue'),
++  },
 +  {
 +    path: '/workflows',
 +    name: 'Workflows',
