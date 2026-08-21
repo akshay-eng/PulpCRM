@@ -81,109 +81,161 @@ index 6212121..3088e2a 100644
 +import { askPanelOpen } from '@/composables/ask'
  </script>
 diff --git a/frontend/src/components/Settings/WhatsAppSettings.vue b/frontend/src/components/Settings/WhatsAppSettings.vue
-index db46a4b..5dee556 100644
+index db46a4b..82aae74 100644
 --- a/frontend/src/components/Settings/WhatsAppSettings.vue
 +++ b/frontend/src/components/Settings/WhatsAppSettings.vue
-@@ -1,6 +1,102 @@
+@@ -1,6 +1,154 @@
  <template>
 -  <SettingsPage doctype="WhatsApp Settings" class="p-8" />
-+  <div class="flex h-full flex-col">
-+    <!-- Connection summary + the entry point for adding one. -->
-+    <div class="flex items-start justify-between gap-4 px-8 pt-8">
-+      <div class="flex flex-wrap gap-2">
-+        <div
-+          v-for="c in channels"
-+          :key="c.id"
-+          class="flex items-center gap-2 rounded-md border px-3 py-1.5"
-+          :class="c.active
-+            ? 'border-orange-300 bg-orange-50'
-+            : 'border-outline-gray-2 bg-surface-white'"
++  <div class="flex h-full flex-col overflow-y-auto">
++    <!-- Meta Cloud API: the existing form, unchanged. -->
++    <SettingsPage doctype="WhatsApp Settings" class="p-8 pb-0" />
++
++    <!-- OpenWA: a separate connection, configured on its own terms. -->
++    <div class="border-t border-outline-gray-2 p-8">
++      <div class="flex items-start justify-between gap-4">
++        <div>
++          <h2 class="flex items-center gap-2 text-2xl-semibold leading-none text-ink-gray-8">
++            {{ __('OpenWA Connection') }}
++            <Badge v-if="connected" :theme="active ? 'orange' : 'green'" variant="subtle">
++              {{ active ? __('Active') : __('Connected') }}
++            </Badge>
++          </h2>
++          <p class="mt-2 max-w-2xl text-p-base text-ink-gray-6">
++            {{ __('A self-hosted WhatsApp bridge that runs on your own account. No approved templates and no 24-hour window, and it can see replies you type on your own phone — which is what lets automation stand down when you step in. Unofficial, and it carries account-ban risk.') }}
++          </p>
++        </div>
++
++        <Button
++          v-if="!connected"
++          variant="solid"
++          :label="__('Add connection')"
++          @click="showDialog = true"
 +        >
-+          <component :is="c.icon" class="h-4 w-4 text-ink-gray-7" />
-+          <span class="text-sm font-medium text-ink-gray-8">{{ c.label }}</span>
-+          <Badge :theme="c.theme" variant="subtle">{{ c.status }}</Badge>
-+          <button
-+            v-if="c.configured && !c.active"
-+            class="text-xs text-ink-gray-5 underline hover:text-ink-gray-8"
-+            @click="useChannel(c.id)"
-+          >{{ __('Use this') }}</button>
-+          <button
-+            v-if="c.id === 'openwa' && c.configured"
-+            class="text-xs text-ink-gray-5 underline hover:text-ink-gray-8"
-+            @click="showOpenWA = true"
-+          >{{ __('Edit') }}</button>
++          <template #prefix><LucidePlus class="h-4 w-4" /></template>
++        </Button>
++      </div>
++
++      <!-- configured state -->
++      <div
++        v-if="connected"
++        class="mt-5 rounded-lg border border-outline-gray-2 bg-surface-white"
++      >
++        <div class="grid grid-cols-3 gap-4 px-4 py-4">
++          <div>
++            <div class="text-xs text-ink-gray-5">{{ __('Server') }}</div>
++            <div class="mt-0.5 truncate text-base text-ink-gray-8">{{ openwa.base_url }}</div>
++          </div>
++          <div>
++            <div class="text-xs text-ink-gray-5">{{ __('Session') }}</div>
++            <div class="mt-0.5 truncate text-base text-ink-gray-8">
++              {{ status.name || openwa.session_id }}
++              <span v-if="status.status" class="text-ink-gray-5">· {{ status.status }}</span>
++            </div>
++          </div>
++          <div>
++            <div class="text-xs text-ink-gray-5">{{ __('Inbound webhook') }}</div>
++            <div class="mt-0.5 text-base"
++                 :class="openwa.has_webhook_secret ? 'text-ink-gray-8' : 'text-orange-600'">
++              {{ openwa.has_webhook_secret ? __('Registered') : __('Not registered') }}
++            </div>
++          </div>
++        </div>
++
++        <div class="flex items-center gap-2 border-t border-outline-gray-2 px-4 py-3">
++          <Button
++            v-if="!active"
++            variant="solid"
++            :label="__('Use for WhatsApp')"
++            @click="useOpenWA"
++          />
++          <Button :label="__('Test connection')" :loading="testing" @click="test" />
++          <Button :label="__('Edit')" @click="showDialog = true" />
++          <Button
++            v-if="!openwa.has_webhook_secret"
++            :label="__('Register webhook')"
++            :loading="hooking"
++            @click="registerHook"
++          />
++          <span
++            v-if="message"
++            class="text-xs"
++            :class="message.ok ? 'text-green-700' : 'text-red-600'"
++          >{{ message.text }}</span>
 +        </div>
 +      </div>
 +
-+      <Button variant="solid" :label="__('Add connection')" @click="showChoice = true">
-+        <template #prefix><LucidePlus class="h-4 w-4" /></template>
-+      </Button>
++      <div v-else class="mt-5 rounded-lg border border-dashed border-outline-gray-3 px-4 py-6 text-center">
++        <div class="text-base text-ink-gray-6">{{ __('No OpenWA connection yet.') }}</div>
++        <div class="mt-1 text-xs text-ink-gray-5">
++          {{ __('You will need the server URL, an API key and a logged-in session.') }}
++        </div>
++      </div>
 +    </div>
 +
-+    <!-- Meta keeps its existing configuration form untouched. -->
-+    <SettingsPage doctype="WhatsApp Settings" class="p-8" />
-+
-+    <ChooseProviderDialog v-model="showChoice" @choose="onChoose" />
-+    <OpenWADialog v-model="showOpenWA" @connected="load" />
++    <OpenWADialog v-model="showDialog" @connected="load" />
 +  </div>
  </template>
 +
  <script setup>
  import SettingsPage from '@/components/Settings/SettingsPage.vue'
-+import ChooseProviderDialog from '@/components/Settings/WhatsApp/ChooseProviderDialog.vue'
 +import OpenWADialog from '@/components/Settings/WhatsApp/OpenWADialog.vue'
 +import { Button, Badge, call, toast } from 'frappe-ui'
 +import { ref, computed, onMounted } from 'vue'
 +import LucidePlus from '~icons/lucide/plus'
-+import LucideBadgeCheck from '~icons/lucide/badge-check'
-+import LucideServer from '~icons/lucide/server'
 +
 +const data = ref({})
-+const showChoice = ref(false)
-+const showOpenWA = ref(false)
++const status = ref({})
++const showDialog = ref(false)
++const testing = ref(false)
++const hooking = ref(false)
++const message = ref(null)
 +
-+const channels = computed(() => {
-+  const o = data.value.openwa || {}
-+  const m = data.value.meta || {}
-+  const active = data.value.active_channel
-+  const openwaReady = Boolean(o.has_api_key && o.session_id)
-+  return [
-+    {
-+      id: 'meta', label: __('Meta Cloud API'), icon: LucideBadgeCheck,
-+      configured: Boolean(m.accounts?.length),
-+      active: active === 'meta',
-+      status: active === 'meta' ? __('Active') : m.active ? __('Ready') : __('Not set up'),
-+      theme: active === 'meta' ? 'orange' : m.active ? 'green' : 'gray',
-+    },
-+    {
-+      id: 'openwa', label: __('OpenWA'), icon: LucideServer,
-+      configured: openwaReady,
-+      active: active === 'openwa',
-+      status: active === 'openwa' ? __('Active') : openwaReady ? __('Ready') : __('Not set up'),
-+      theme: active === 'openwa' ? 'orange' : openwaReady ? 'green' : 'gray',
-+    },
-+  ]
-+})
++const openwa = computed(() => data.value.openwa || {})
++const connected = computed(() => Boolean(openwa.value.has_api_key && openwa.value.session_id))
++const active = computed(() => data.value.active_channel === 'openwa')
 +
 +async function load() {
 +  data.value = await call('baton.api.connections.get_connections')
-+}
-+
-+function onChoose(id) {
-+  // Meta keeps doing exactly what it did before: the form below is its setup.
-+  if (id === 'meta') {
-+    useChannel('meta')
-+    toast.info(__('Configure your Meta account in the settings below.'))
-+    return
++  if (connected.value) {
++    try {
++      status.value = await call('baton.api.connections.test_openwa')
++    } catch {
++      status.value = {}
++    }
 +  }
-+  showOpenWA.value = true
 +}
 +
-+async function useChannel(id) {
-+  data.value = await call('baton.api.connections.set_active_channel', { channel: id })
-+  toast.success(__('WhatsApp now goes through {0}', [
-+    id === 'openwa' ? 'OpenWA' : __('Meta Cloud API'),
-+  ]))
++async function useOpenWA() {
++  data.value = await call('baton.api.connections.set_active_channel', { channel: 'openwa' })
++  toast.success(__('WhatsApp now goes through OpenWA'))
++}
++
++async function test() {
++  testing.value = true
++  try {
++    const r = await call('baton.api.connections.test_openwa')
++    status.value = r
++    message.value = r.ok
++      ? { ok: true, text: __('Session “{0}” is {1}.', [r.name || '', r.status]) }
++      : { ok: false, text: r.error || __('Could not reach OpenWA.') }
++  } finally {
++    testing.value = false
++  }
++}
++
++async function registerHook() {
++  hooking.value = true
++  try {
++    const s = await call('baton.api.connections.suggest_webhook_url')
++    await call('baton.api.connections.register_openwa_webhook', { public_url: s.url })
++    toast.success(__('Webhook registered'))
++    await load()
++  } catch (e) {
++    message.value = { ok: false, text: e.message || String(e) }
++  } finally {
++    hooking.value = false
++  }
 +}
 +
 +onMounted(load)
