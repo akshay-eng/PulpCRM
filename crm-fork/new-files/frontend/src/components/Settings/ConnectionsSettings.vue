@@ -1,17 +1,16 @@
 <template>
-  <LayoutHeader>
-    <template #left-header>
-      <Breadcrumbs :items="[{ label: __('Connections'), route: { name: 'Connections' } }]" />
-    </template>
-    <template #right-header>
+  <SettingsLayoutBase
+    :title="__('Connections')"
+    :description="__('Choose and configure how Baton sends and receives WhatsApp.')"
+  >
+    <template #header-actions>
       <Button :label="__('Refresh')" :loading="loading" @click="load">
         <template #prefix><LucideRefreshCw class="h-4 w-4" /></template>
       </Button>
     </template>
-  </LayoutHeader>
 
-  <div class="flex-1 overflow-y-auto px-6 py-5">
-    <div class="mx-auto max-w-4xl">
+    <template #content>
+      <div class="flex flex-col gap-5">
       <!-- which channel is live -->
       <div class="mb-5 rounded-lg border border-outline-gray-2 bg-surface-white p-4">
         <div class="mb-1 text-base font-medium text-ink-gray-8">{{ __('WhatsApp channel') }}</div>
@@ -152,15 +151,16 @@
       <div class="mt-4 rounded-md bg-surface-gray-2 px-4 py-3 text-xs text-ink-gray-6">
         <b>{{ __('Which should you use?') }}</b>
         {{ __('Meta is official and durable, but cannot see messages you type on your own phone — so human-handoff detection is partial. OpenWA rides your real account and sees everything, which makes handoff exact, but it is unofficial and carries account-ban risk.') }}
+        </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </SettingsLayoutBase>
 </template>
 
 <script setup>
-import LayoutHeader from '@/components/LayoutHeader.vue'
-import { Breadcrumbs, Button, Badge, FormControl, call, toast } from 'frappe-ui'
+import { Button, Badge, FormControl, call, toast } from 'frappe-ui'
 import { ref, reactive, computed, onMounted } from 'vue'
+import SettingsLayoutBase from '@/components/Layouts/SettingsLayoutBase.vue'
 import LucideRefreshCw from '~icons/lucide/refresh-cw'
 import LucideServer from '~icons/lucide/server'
 import LucideBadgeCheck from '~icons/lucide/badge-check'

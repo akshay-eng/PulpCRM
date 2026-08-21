@@ -24,7 +24,8 @@ upgradable.
 | Follow-up ladder, generated as an editable workflow | ✅ |
 | WhatsApp webhook signature verification (fixes an upstream hole) | ✅ tested |
 | **OpenWA connector** — self-hosted WhatsApp bridge, HMAC-verified | ✅ live-tested |
-| **Connections UI** — pick Meta or OpenWA, configure and test in the CRM | ✅ |
+| **Connections UI** — pick Meta or OpenWA, configure and test | ✅ in CRM Settings → Integrations |
+| **Ask panel** — query CRM data in English from a side panel | ✅ |
 | Meta Lead Ads ingestion | ⏳ native to Frappe CRM; hardening pending |
 | Deal monitoring, escalation, MCP, agent builder, dashboard | ⏳ not started |
 

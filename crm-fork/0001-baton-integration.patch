@@ -13,19 +13,38 @@ index 62719b9..d7ca5e6 100644
      "dompurify": "^3.3.3",
      "frappe-ui": "1.0.0-beta.29",
 diff --git a/frontend/src/components/Layouts/AppSidebar.vue b/frontend/src/components/Layouts/AppSidebar.vue
-index 9b36dc2..52aa5be 100644
+index 9b36dc2..0d51799 100644
 --- a/frontend/src/components/Layouts/AppSidebar.vue
 +++ b/frontend/src/components/Layouts/AppSidebar.vue
-@@ -174,6 +174,8 @@
+@@ -18,6 +18,17 @@
+       <div class="flex h-full flex-col p-2">
+         <UserDropdown :isCollapsed="isCollapsed" />
+ 
++        <!-- Ask: opens the right-hand panel for querying CRM data in English. -->
++        <button
++          class="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-ink-gray-8 transition hover:bg-surface-gray-3"
++          :class="askPanelOpen ? 'bg-surface-gray-3' : ''"
++          :title="__('Ask')"
++          @click="toggleAskPanel"
++        >
++          <LucideSparkles class="h-4 w-4 shrink-0 text-orange-500" />
++          <span v-if="!isCollapsed" class="text-base">{{ __('Ask') }}</span>
++        </button>
++
+         <!-- overflow-y-auto forces overflow-x to clip too, which would slice the
+              active row's shadow. Widen the scroll box to the sidebar edges and
+              pad the content back in so the shadow has room. -->
+@@ -174,6 +185,9 @@
  <script setup>
  import BrushCleaningIcon from '~icons/lucide/brush-cleaning'
  import LucideLayoutDashboard from '~icons/lucide/layout-dashboard'
 +import LucideWorkflow from '~icons/lucide/workflow'
-+import LucidePlug from '~icons/lucide/plug'
++import LucideSparkles from '~icons/lucide/sparkles'
++import { askPanelOpen, toggleAskPanel } from '@/composables/ask'
  import CRMLogo from '@/components/Icons/CRMLogo.vue'
  import InviteIcon from '@/components/Icons/InviteIcon.vue'
  import ConvertIcon from '@/components/Icons/ConvertIcon.vue'
-@@ -292,6 +294,16 @@ const links = [
+@@ -292,6 +306,11 @@ const links = [
      icon: PhoneIcon,
      to: 'Call Logs',
    },
@@ -34,27 +53,66 @@ index 9b36dc2..52aa5be 100644
 +    icon: LucideWorkflow,
 +    to: 'Workflows',
 +  },
-+  {
-+    label: 'Connections',
-+    icon: LucidePlug,
-+    to: 'Connections',
-+  },
  ]
  
  const allViews = computed(() => {
+diff --git a/frontend/src/components/Layouts/DesktopLayout.vue b/frontend/src/components/Layouts/DesktopLayout.vue
+index 6212121..3088e2a 100644
+--- a/frontend/src/components/Layouts/DesktopLayout.vue
++++ b/frontend/src/components/Layouts/DesktopLayout.vue
+@@ -1,10 +1,11 @@
+ <template>
+   <div class="flex h-screen w-screen">
+     <AppSidebar />
+-    <div class="flex-1 flex flex-col h-full overflow-auto bg-surface-base">
++    <div class="flex-1 min-w-0 flex flex-col h-full overflow-auto bg-surface-base">
+       <AppHeader />
+       <slot />
+     </div>
++    <AskPanel :open="askPanelOpen" @close="askPanelOpen = false" />
+     <GlobalModals />
+   </div>
+ </template>
+@@ -12,4 +13,6 @@
+ import AppSidebar from '@/components/Layouts/AppSidebar.vue'
+ import AppHeader from '@/components/Layouts/AppHeader.vue'
+ import GlobalModals from '@/components/Modals/GlobalModals.vue'
++import AskPanel from '@/components/Chat/AskPanel.vue'
++import { askPanelOpen } from '@/composables/ask'
+ </script>
+diff --git a/frontend/src/components/Settings/Settings.vue b/frontend/src/components/Settings/Settings.vue
+index a9b87b4..7504cd9 100644
+--- a/frontend/src/components/Settings/Settings.vue
++++ b/frontend/src/components/Settings/Settings.vue
+@@ -65,6 +65,7 @@ import InviteUserPage from '@/components/Settings/InviteUserPage.vue'
+ import ProfilePage from '@/components/Settings/Profile/ProfilePage.vue'
+ import PreferencesSettings from '@/components/Settings/PreferencesSettings.vue'
+ import WhatsAppSettings from '@/components/Settings/WhatsAppSettings.vue'
++import ConnectionsSettings from '@/components/Settings/ConnectionsSettings.vue'
+ import ERPNextSettings from '@/components/Settings/ERPNextSettings.vue'
+ import LeadSyncSourcePage from '@/components/Settings/LeadSyncing/LeadSyncSourcePage.vue'
+ import DefaultsSettings from '@/components/Settings/DefaultsSettings.vue'
+@@ -222,6 +223,12 @@ const tabs = computed(() => {
+           component: markRaw(WhatsAppSettings),
+           condition: () => isWhatsappInstalled.value && isManager(),
+         },
++        {
++          label: __('Connections'),
++          icon: 'plug',
++          component: markRaw(ConnectionsSettings),
++          condition: () => isManager(),
++        },
+         {
+           label: __('ERPNext'),
+           icon: ERPNextIcon,
 diff --git a/frontend/src/router.js b/frontend/src/router.js
-index 1aec80c..6a13085 100644
+index 1aec80c..14d46b0 100644
 --- a/frontend/src/router.js
 +++ b/frontend/src/router.js
-@@ -102,6 +102,21 @@ const routes = [
+@@ -102,6 +102,16 @@ const routes = [
      name: 'Call Logs',
      component: () => import('@/pages/CallLogs.vue'),
    },
-+  {
-+    path: '/connections',
-+    name: 'Connections',
-+    component: () => import('@/pages/Connections.vue'),
-+  },
 +  {
 +    path: '/workflows',
 +    name: 'Workflows',
