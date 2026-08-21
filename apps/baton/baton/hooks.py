@@ -1,0 +1,51 @@
+app_name = "baton"
+app_title = "Baton"
+app_publisher = "PulpLabs"
+app_description = "Lead to cash, one thread. WhatsApp-first layer over Frappe CRM."
+app_email = "akshaysdeekshith@gmail.com"
+app_license = "mit"
+
+required_apps = ["crm"]
+
+# ---------------------------------------------------------------------------
+# Document events
+#
+# The "*" listener is what makes the workflow builder work on any doctype
+# without registering each one. handle_document_event returns immediately
+# unless a workflow is actually listening for that doctype+event pair, so the
+# cost on unrelated saves is one indexed lookup.
+# ---------------------------------------------------------------------------
+doc_events = {
+    "*": {
+        "after_insert": "baton.workflow.engine.handle_document_event",
+        "on_update": "baton.workflow.engine.handle_document_event",
+        "on_trash": "baton.workflow.engine.handle_document_event",
+    },
+    "WhatsApp Message": {
+        "before_insert": "baton.api.whatsapp.tag_author",
+        "after_insert": "baton.api.whatsapp.on_message",
+    },
+}
+
+scheduler_events = {
+    "cron": {
+        # Scheduled workflows are polled once a minute and matched against
+        # their cron expression inside the job.
+        "* * * * *": [
+            "baton.workflow.scheduler.tick",
+            # Durable waits: wake runs whose resume_at has passed (spec §107).
+            "baton.workflow.scheduler.resume_due_runs",
+            # Act on conversations whose human cooldown has elapsed (spec §28).
+            "baton.conversation.state.review_expired_cooldowns",
+        ],
+    }
+}
+
+
+
+# The vendored frappe_whatsapp webhook accepts unauthenticated POSTs. Replace it
+# with a signature-verifying wrapper without editing that app, so an upgrade
+# cannot silently remove the check.
+override_whitelisted_methods = {
+    "frappe_whatsapp.utils.webhook.webhook": "baton.api.webhook.webhook",
+}

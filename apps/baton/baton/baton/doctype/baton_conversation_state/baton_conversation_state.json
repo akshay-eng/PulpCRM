@@ -1,0 +1,167 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-08-20 02:56:57.620445",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_doctype",
+  "reference_name",
+  "col_s",
+  "state",
+  "channel",
+  "sec_pause",
+  "paused_until",
+  "paused_by",
+  "pause_reason",
+  "col_p",
+  "resume_policy",
+  "sec_act",
+  "last_human_message_at",
+  "last_ai_message_at",
+  "col_act",
+  "last_inbound_at",
+  "ai_turn_count"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Reference Type",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Reference",
+   "options": "reference_doctype",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_s",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "AI_ACTIVE",
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "State",
+   "options": "AI_ACTIVE\nHUMAN_ACTIVE\nAI_REVIEW_PENDING\nPAUSED\nESCALATED\nCLOSED\nDO_NOT_CONTACT"
+  },
+  {
+   "default": "Any",
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "Channel",
+   "options": "Any\nWhatsApp\nEmail"
+  },
+  {
+   "fieldname": "sec_pause",
+   "fieldtype": "Section Break",
+   "label": "Pause"
+  },
+  {
+   "description": "AI may not send before this time.",
+   "fieldname": "paused_until",
+   "fieldtype": "Datetime",
+   "label": "Paused until"
+  },
+  {
+   "fieldname": "paused_by",
+   "fieldtype": "Link",
+   "label": "Paused by",
+   "options": "User"
+  },
+  {
+   "fieldname": "pause_reason",
+   "fieldtype": "Small Text",
+   "label": "Reason"
+  },
+  {
+   "fieldname": "col_p",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "REQUIRE_APPROVAL",
+   "fieldname": "resume_policy",
+   "fieldtype": "Select",
+   "label": "Resume policy",
+   "options": "AUTO_RESUME\nREQUIRE_APPROVAL\nREMAIN_PAUSED"
+  },
+  {
+   "fieldname": "sec_act",
+   "fieldtype": "Section Break",
+   "label": "Activity"
+  },
+  {
+   "fieldname": "last_human_message_at",
+   "fieldtype": "Datetime",
+   "label": "Last human message"
+  },
+  {
+   "fieldname": "last_ai_message_at",
+   "fieldtype": "Datetime",
+   "label": "Last AI message"
+  },
+  {
+   "fieldname": "col_act",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_inbound_at",
+   "fieldtype": "Datetime",
+   "label": "Last inbound"
+  },
+  {
+   "default": "0",
+   "fieldname": "ai_turn_count",
+   "fieldtype": "Int",
+   "label": "AI turns"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-20 02:56:57.620445",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Conversation State",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,134 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:policy_name",
+ "creation": "2026-08-20 03:14:54.076712",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "policy_name",
+  "enabled",
+  "col_p",
+  "is_default",
+  "max_attempts",
+  "sec_steps",
+  "steps",
+  "sec_esc",
+  "create_task",
+  "task_subject",
+  "col_esc",
+  "notify_owner"
+ ],
+ "fields": [
+  {
+   "fieldname": "policy_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "col_p",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Default"
+  },
+  {
+   "default": "4",
+   "description": "After this, stop messaging and escalate to a human.",
+   "fieldname": "max_attempts",
+   "fieldtype": "Int",
+   "label": "Max attempts"
+  },
+  {
+   "fieldname": "sec_steps",
+   "fieldtype": "Section Break",
+   "label": "Ladder"
+  },
+  {
+   "fieldname": "steps",
+   "fieldtype": "Table",
+   "label": "Steps",
+   "options": "Baton Followup Step"
+  },
+  {
+   "fieldname": "sec_esc",
+   "fieldtype": "Section Break",
+   "label": "On exhaustion"
+  },
+  {
+   "default": "1",
+   "fieldname": "create_task",
+   "fieldtype": "Check",
+   "label": "Create a call task"
+  },
+  {
+   "default": "Call lead \u2014 no response to automated follow-ups",
+   "fieldname": "task_subject",
+   "fieldtype": "Data",
+   "label": "Task subject"
+  },
+  {
+   "fieldname": "col_esc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "notify_owner",
+   "fieldtype": "Check",
+   "label": "Notify owner"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-20 03:14:54.076712",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Followup Policy",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "policy_name"
+}

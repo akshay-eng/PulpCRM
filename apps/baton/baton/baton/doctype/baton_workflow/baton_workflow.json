@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:workflow_name",
+ "creation": "2026-08-19 21:35:05.993515",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "workflow_name",
+  "enabled",
+  "col_w",
+  "trigger_type",
+  "trigger_doctype",
+  "trigger_event",
+  "cron",
+  "sec_cond",
+  "condition",
+  "sec_nodes",
+  "nodes",
+  "graph",
+  "trigger_event_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "workflow_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "col_w",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "trigger_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Trigger",
+   "options": "Document Event\nScheduled\nManual\nWebhook\nEvent",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Document Event'",
+   "fieldname": "trigger_doctype",
+   "fieldtype": "Link",
+   "label": "Trigger DocType",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Document Event'",
+   "fieldname": "trigger_event",
+   "fieldtype": "Select",
+   "label": "Event",
+   "options": "after_insert\non_update\non_submit\non_cancel\non_trash"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Scheduled'",
+   "description": "Standard 5-field cron, e.g. 0 9 * * * for 9am daily.",
+   "fieldname": "cron",
+   "fieldtype": "Data",
+   "label": "Cron"
+  },
+  {
+   "fieldname": "sec_cond",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Optional Python expression over `doc`. Blank means always run.",
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Condition"
+  },
+  {
+   "fieldname": "sec_nodes",
+   "fieldtype": "Section Break",
+   "label": "Graph"
+  },
+  {
+   "fieldname": "nodes",
+   "fieldtype": "Table",
+   "label": "Nodes",
+   "options": "Baton Workflow Node"
+  },
+  {
+   "fieldname": "graph",
+   "fieldtype": "Code",
+   "hidden": 1,
+   "label": "Canvas layout (JSON)",
+   "options": "JSON"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Event'",
+   "description": "e.g. lead.replied, deal.stalled (see baton.events.EVENTS)",
+   "fieldname": "trigger_event_name",
+   "fieldtype": "Data",
+   "label": "Event name"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-20 02:48:50.498401",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Workflow",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "workflow_name"
+}

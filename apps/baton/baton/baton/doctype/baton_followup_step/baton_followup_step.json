@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-20 03:14:53.573779",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "step",
+  "channel",
+  "wait_amount",
+  "wait_unit",
+  "col_f",
+  "prompt"
+ ],
+ "fields": [
+  {
+   "fieldname": "step",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "#"
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Channel",
+   "options": "WhatsApp\nEmail",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "wait_amount",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Wait"
+  },
+  {
+   "default": "days",
+   "fieldname": "wait_unit",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Unit",
+   "options": "minutes\nhours\ndays"
+  },
+  {
+   "fieldname": "col_f",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Instruction for the model, not the literal message.",
+   "fieldname": "prompt",
+   "fieldtype": "Small Text",
+   "label": "What to say"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-20 03:14:53.573779",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Followup Step",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

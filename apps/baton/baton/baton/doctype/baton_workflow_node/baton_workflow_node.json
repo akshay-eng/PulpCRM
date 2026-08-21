@@ -1,0 +1,124 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-19 21:35:05.908464",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "node_id",
+  "node_type",
+  "label",
+  "col_n",
+  "next_node",
+  "next_node_alt",
+  "sec_cfg",
+  "config",
+  "position_x",
+  "position_y",
+  "max_retries",
+  "retry_delay",
+  "on_error",
+  "fallback_node"
+ ],
+ "fields": [
+  {
+   "fieldname": "node_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Node ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "node_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Trigger\nCondition\nUpdate Field\nCreate Document\nSend WhatsApp\nSend Email\nAI Agent\nWait\nRequest Approval\nWebhook\nCheck Reply\nCreate Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "fieldname": "col_n",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "next_node",
+   "fieldtype": "Data",
+   "label": "Next Node"
+  },
+  {
+   "description": "Taken when a Condition node evaluates false.",
+   "fieldname": "next_node_alt",
+   "fieldtype": "Data",
+   "label": "Else Node"
+  },
+  {
+   "fieldname": "sec_cfg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "config",
+   "fieldtype": "Code",
+   "label": "Config (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "position_x",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "X"
+  },
+  {
+   "fieldname": "position_y",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Y"
+  },
+  {
+   "default": "0",
+   "fieldname": "max_retries",
+   "fieldtype": "Int",
+   "label": "Max retries"
+  },
+  {
+   "default": "30",
+   "fieldname": "retry_delay",
+   "fieldtype": "Int",
+   "label": "Retry delay (s)"
+  },
+  {
+   "default": "Fail run",
+   "fieldname": "on_error",
+   "fieldtype": "Select",
+   "label": "On error",
+   "options": "Fail run\nContinue\nGo to fallback"
+  },
+  {
+   "depends_on": "eval:doc.on_error=='Go to fallback'",
+   "fieldname": "fallback_node",
+   "fieldtype": "Data",
+   "label": "Fallback node"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-20 03:16:11.035040",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Workflow Node",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

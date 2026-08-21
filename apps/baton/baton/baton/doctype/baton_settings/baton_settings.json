@@ -1,0 +1,211 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-19 21:35:05.559960",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "ai_section",
+  "ai_enabled",
+  "ai_base_url",
+  "ai_model",
+  "col_ai",
+  "ai_api_key",
+  "ai_max_rows",
+  "wa_section",
+  "agent_signature",
+  "ai_turn_cap",
+  "sec_auto",
+  "whatsapp_send_mode",
+  "email_send_mode",
+  "col_auto",
+  "human_cooldown_minutes",
+  "default_resume_policy",
+  "sec_quiet",
+  "quiet_hours_enabled",
+  "quiet_start",
+  "col_quiet",
+  "quiet_end",
+  "max_messages_per_lead_per_day",
+  "sec_meta",
+  "meta_app_secret"
+ ],
+ "fields": [
+  {
+   "fieldname": "ai_section",
+   "fieldtype": "Section Break",
+   "label": "AI Provider"
+  },
+  {
+   "default": "0",
+   "fieldname": "ai_enabled",
+   "fieldtype": "Check",
+   "label": "Enable AI"
+  },
+  {
+   "default": "https://api.groq.com/openai/v1",
+   "description": "e.g. https://api.groq.com/openai/v1 or https://generativelanguage.googleapis.com/v1beta/openai",
+   "fieldname": "ai_base_url",
+   "fieldtype": "Data",
+   "label": "OpenAI-compatible Base URL"
+  },
+  {
+   "default": "llama-3.3-70b-versatile",
+   "fieldname": "ai_model",
+   "fieldtype": "Data",
+   "label": "Model"
+  },
+  {
+   "fieldname": "col_ai",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ai_api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "default": "50",
+   "description": "Caps how much data a single chat answer can pull.",
+   "fieldname": "ai_max_rows",
+   "fieldtype": "Int",
+   "label": "Max rows returned to the model"
+  },
+  {
+   "fieldname": "wa_section",
+   "fieldtype": "Section Break",
+   "label": "WhatsApp"
+  },
+  {
+   "description": "Appended to AI-authored WhatsApp messages so recipients are not misled about who is writing.",
+   "fieldname": "agent_signature",
+   "fieldtype": "Data",
+   "label": "Agent signature"
+  },
+  {
+   "default": "6",
+   "fieldname": "ai_turn_cap",
+   "fieldtype": "Int",
+   "label": "AI turns before human handover"
+  },
+  {
+   "fieldname": "sec_auto",
+   "fieldtype": "Section Break",
+   "label": "Automation policy"
+  },
+  {
+   "default": "Auto",
+   "description": "Draft composes but requires approval before sending (spec \u00a759).",
+   "fieldname": "whatsapp_send_mode",
+   "fieldtype": "Select",
+   "label": "WhatsApp sending",
+   "options": "Auto\nDraft\nOff"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "email_send_mode",
+   "fieldtype": "Select",
+   "label": "Email sending",
+   "options": "Auto\nDraft\nOff"
+  },
+  {
+   "fieldname": "col_auto",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "360",
+   "description": "AI stays silent this long after a human sends manually.",
+   "fieldname": "human_cooldown_minutes",
+   "fieldtype": "Int",
+   "label": "Human intervention cooldown (minutes)"
+  },
+  {
+   "default": "REQUIRE_APPROVAL",
+   "fieldname": "default_resume_policy",
+   "fieldtype": "Select",
+   "label": "Default resume policy",
+   "options": "AUTO_RESUME\nREQUIRE_APPROVAL\nREMAIN_PAUSED"
+  },
+  {
+   "fieldname": "sec_quiet",
+   "fieldtype": "Section Break",
+   "label": "Quiet hours"
+  },
+  {
+   "default": "1",
+   "fieldname": "quiet_hours_enabled",
+   "fieldtype": "Check",
+   "label": "Enable quiet hours"
+  },
+  {
+   "default": "22:00:00",
+   "fieldname": "quiet_start",
+   "fieldtype": "Time",
+   "label": "Quiet from"
+  },
+  {
+   "fieldname": "col_quiet",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "08:00:00",
+   "fieldname": "quiet_end",
+   "fieldtype": "Time",
+   "label": "Quiet until"
+  },
+  {
+   "default": "3",
+   "description": "Rate limit against runaway loops (spec \u00a750).",
+   "fieldname": "max_messages_per_lead_per_day",
+   "fieldtype": "Int",
+   "label": "Max automated messages per lead per day"
+  },
+  {
+   "fieldname": "sec_meta",
+   "fieldtype": "Section Break",
+   "label": "Meta"
+  },
+  {
+   "description": "Verifies X-Hub-Signature-256 on inbound WhatsApp webhooks. Without it Baton refuses the webhook rather than trusting it.",
+   "fieldname": "meta_app_secret",
+   "fieldtype": "Password",
+   "label": "Meta App Secret"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-20 13:58:34.881820",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

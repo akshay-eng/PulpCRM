@@ -1,0 +1,202 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:model_name",
+ "creation": "2026-08-20 02:47:51.912005",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "model_name",
+  "enabled",
+  "is_default",
+  "col_m",
+  "purpose",
+  "provider",
+  "sec_conn",
+  "model",
+  "base_url",
+  "col_c",
+  "api_key",
+  "api_version",
+  "sec_tune",
+  "temperature",
+  "max_tokens",
+  "col_t",
+  "timeout",
+  "max_retries",
+  "sec_p",
+  "system_prompt",
+  "prompt_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "model_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "0",
+   "description": "Used when no model is configured for a purpose.",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Default model"
+  },
+  {
+   "fieldname": "col_m",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "General",
+   "fieldname": "purpose",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Purpose",
+   "options": "General\nQualification\nConversation\nSummarisation\nWorkflow"
+  },
+  {
+   "default": "OpenAI Compatible",
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Provider",
+   "options": "OpenAI Compatible\nAnthropic\nGoogle Gemini\nOllama\nAzure OpenAI",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sec_conn",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "description": "e.g. llama-3.3-70b-versatile, claude-sonnet-4-5, gemini-2.0-flash, llama3.2",
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model",
+   "reqd": 1
+  },
+  {
+   "description": "Blank uses the provider default. Ollama defaults to http://localhost:11434",
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL"
+  },
+  {
+   "fieldname": "col_c",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Not required for Ollama.",
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key"
+  },
+  {
+   "depends_on": "eval:doc.provider=='Azure OpenAI'",
+   "fieldname": "api_version",
+   "fieldtype": "Data",
+   "label": "API Version"
+  },
+  {
+   "fieldname": "sec_tune",
+   "fieldtype": "Section Break",
+   "label": "Tuning"
+  },
+  {
+   "default": "0",
+   "fieldname": "temperature",
+   "fieldtype": "Float",
+   "label": "Temperature"
+  },
+  {
+   "default": "2048",
+   "fieldname": "max_tokens",
+   "fieldtype": "Int",
+   "label": "Max tokens"
+  },
+  {
+   "fieldname": "col_t",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "90",
+   "fieldname": "timeout",
+   "fieldtype": "Int",
+   "label": "Timeout (s)"
+  },
+  {
+   "default": "2",
+   "fieldname": "max_retries",
+   "fieldtype": "Int",
+   "label": "Max retries"
+  },
+  {
+   "fieldname": "sec_p",
+   "fieldtype": "Section Break",
+   "label": "Prompt"
+  },
+  {
+   "description": "Prepended to every call using this model.",
+   "fieldname": "system_prompt",
+   "fieldtype": "Small Text",
+   "label": "System prompt"
+  },
+  {
+   "default": "1",
+   "description": "Bumped whenever the system prompt changes, so logged actions stay traceable (spec \u00a786).",
+   "fieldname": "prompt_version",
+   "fieldtype": "Int",
+   "label": "Prompt version",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-20 02:47:51.912005",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton AI Model",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "model_name"
+}
