@@ -54,6 +54,35 @@ class TestFetchMediaFailure(FrappeTestCase):
     """A picture that will not download is recoverable. A dropped customer
     message is not. Every failure path must return None, never raise."""
 
+    def setUp(self):
+        # fetch_media reads the connector config before it reaches requests, so
+        # patching requests alone is not enough. Supplied here rather than
+        # inherited from the site: these passed only while the dev site happened
+        # to have OpenWA configured, and went red the moment it was switched off.
+        self._saved = {
+            f: frappe.db.get_single_value("Baton Settings", f)
+            for f in ("openwa_enabled", "openwa_base_url", "openwa_session_id")
+        }
+        frappe.db.set_single_value("Baton Settings", "openwa_enabled", 1)
+        frappe.db.set_single_value("Baton Settings", "openwa_base_url",
+                                   "http://openwa.test:2785")
+        frappe.db.set_single_value("Baton Settings", "openwa_session_id", "test-session")
+        frappe.db.commit()
+        # The doc cache, not the meta cache: every reader goes through
+        # get_cached_doc.
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+        settings = frappe.get_doc("Baton Settings")
+        settings.openwa_api_key = "test-key"
+        settings.save(ignore_permissions=True)
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+
+    def tearDown(self):
+        for field, value in self._saved.items():
+            frappe.db.set_single_value("Baton Settings", field, value)
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+
     def _resp(self, status, content=b"", ctype="application/octet-stream"):
         class R:
             status_code = status
