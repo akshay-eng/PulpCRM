@@ -18,8 +18,11 @@
   "condition",
   "sec_nodes",
   "nodes",
-  "graph",
-  "trigger_event_name"
+  "trigger_event_name",
+  "sec_triggers",
+  "triggers",
+  "description",
+  "kind"
  ],
  "fields": [
   {
@@ -92,24 +95,42 @@
    "options": "Baton Workflow Node"
   },
   {
-   "fieldname": "graph",
-   "fieldtype": "Code",
-   "hidden": 1,
-   "label": "Canvas layout (JSON)",
-   "options": "JSON"
-  },
-  {
    "depends_on": "eval:doc.trigger_type=='Event'",
    "description": "e.g. lead.replied, deal.stalled (see baton.events.EVENTS)",
    "fieldname": "trigger_event_name",
    "fieldtype": "Data",
    "label": "Event name"
+  },
+  {
+   "fieldname": "sec_triggers",
+   "fieldtype": "Section Break",
+   "label": "When this happens"
+  },
+  {
+   "fieldname": "triggers",
+   "fieldtype": "Table",
+   "label": "Triggers",
+   "options": "Baton Workflow Trigger"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "default": "Workflow",
+   "description": "A Bot reacts to a trigger and finishes. A Workflow may also pause -- for a delay, a reply, or an approval.",
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Kind",
+   "options": "Workflow\nBot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-20 02:48:50.498401",
+ "modified": "2026-08-22 08:16:24.321461",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Workflow",
@@ -128,15 +149,13 @@
    "write": 1
   },
   {
-   "create": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "Sales User",
-   "share": 1,
-   "write": 1
+   "share": 1
   }
  ],
  "row_format": "Dynamic",

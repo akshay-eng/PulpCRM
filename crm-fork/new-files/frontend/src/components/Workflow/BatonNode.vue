@@ -1,8 +1,19 @@
 <template>
   <div
-    class="relative w-[200px] rounded-lg border bg-surface-white px-3 py-2 shadow-sm transition"
-    :class="selected ? 'border-orange-400 ring-2 ring-orange-200' : 'border-outline-gray-2 hover:border-outline-gray-3'"
+    class="relative w-[214px] rounded-lg border bg-surface-white px-3 py-2 shadow-sm transition"
+    :class="[
+      selected ? 'border-orange-400 ring-2 ring-orange-200' : runBorder,
+      data.runStatus ? '' : 'hover:border-outline-gray-3',
+    ]"
   >
+    <!-- When a run is open, tint by what this node actually did. -->
+    <div
+      v-if="data.runStatus"
+      class="absolute -right-1.5 -top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-medium text-white"
+      :class="runBadge"
+    >
+      {{ data.runStatus }}
+    </div>
     <!-- Trigger nodes have nothing upstream, so no target handle. -->
     <Handle v-if="!isTrigger" type="target" :position="Position.Top" class="!h-2 !w-2 !border !border-gray-400 !bg-white" />
 
@@ -20,15 +31,19 @@
       </div>
     </div>
 
-    <!-- A Condition forks, so it gets two labelled source handles. -->
-    <template v-if="isCondition">
-      <Handle id="true" type="source" :position="Position.Bottom" style="left: 32%"
+    <!--
+      Anything that forks gets two labelled handles. Only Condition used to, so
+      every other branch -- a reply that never came, a rejected approval -- was
+      real at runtime and invisible on the canvas.
+    -->
+    <template v-if="branches">
+      <Handle id="true" type="source" :position="Position.Bottom" style="left: 30%"
         class="!h-2 !w-2 !border !border-green-500 !bg-white" />
-      <Handle id="false" type="source" :position="Position.Bottom" style="left: 68%"
+      <Handle id="false" type="source" :position="Position.Bottom" style="left: 70%"
         class="!h-2 !w-2 !border !border-red-400 !bg-white" />
-      <div class="pointer-events-none absolute -bottom-4 left-0 w-full text-[9px] text-ink-gray-5">
-        <span class="absolute left-[22%]">{{ __('true') }}</span>
-        <span class="absolute left-[62%]">{{ __('false') }}</span>
+      <div class="pointer-events-none absolute -bottom-4 left-0 flex w-full justify-between px-2 text-[9px]">
+        <span class="text-green-600">{{ branches[0] }}</span>
+        <span class="text-red-500">{{ branches[1] }}</span>
       </div>
     </template>
     <Handle v-else type="source" :position="Position.Bottom" class="!h-2 !w-2 !border !border-gray-400 !bg-white" />
@@ -43,9 +58,25 @@ import { iconFor } from './nodeIcons'
 const props = defineProps({
   data: { type: Object, required: true },
   selected: { type: Boolean, default: false },
+  branchLabels: { type: Object, default: () => ({}) },
 })
 
+const RUN_BORDER = {
+  Success: 'border-green-400',
+  Failed: 'border-red-400',
+  Skipped: 'border-amber-400',
+}
+const RUN_BADGE = {
+  Success: 'bg-green-500',
+  Failed: 'bg-red-500',
+  Skipped: 'bg-amber-500',
+}
+const runBorder = computed(
+  () => RUN_BORDER[props.data.runStatus] || 'border-outline-gray-2',
+)
+const runBadge = computed(() => RUN_BADGE[props.data.runStatus] || 'bg-gray-400')
+
 const isTrigger = computed(() => props.data.node_type === 'Trigger')
-const isCondition = computed(() => props.data.node_type === 'Condition')
+const branches = computed(() => props.branchLabels[props.data.node_type] || null)
 const icon = computed(() => iconFor(props.data.node_type))
 </script>

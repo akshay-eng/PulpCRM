@@ -19,7 +19,21 @@
   "resume_node",
   "col_resume",
   "attempt",
-  "cancelled_reason"
+  "cancelled_reason",
+  "sec_claim",
+  "claim_token",
+  "col_claim",
+  "heartbeat_at",
+  "sec_wait",
+  "waiting_for",
+  "waiting_channel",
+  "waiting_since",
+  "col_wait",
+  "resume_node_alt",
+  "run_reason",
+  "sec_ctx",
+  "context",
+  "bot"
  ],
  "fields": [
   {
@@ -27,8 +41,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Workflow",
-   "options": "Baton Workflow",
-   "reqd": 1
+   "options": "Baton Workflow"
   },
   {
    "default": "Running",
@@ -37,7 +50,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Running\nCompleted\nFailed\nWaiting"
+   "options": "Running\nCompleted\nFailed\nWaiting\nCancelled\nExpired"
   },
   {
    "fieldname": "col_r",
@@ -102,12 +115,95 @@
    "fieldname": "cancelled_reason",
    "fieldtype": "Small Text",
    "label": "Cancelled because"
+  },
+  {
+   "fieldname": "sec_claim",
+   "fieldtype": "Section Break",
+   "label": "Worker"
+  },
+  {
+   "description": "Written and read back to prove which worker won the claim.",
+   "fieldname": "claim_token",
+   "fieldtype": "Data",
+   "label": "Claim token",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_claim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Updated after each node. A stale value means the worker died.",
+   "fieldname": "heartbeat_at",
+   "fieldtype": "Datetime",
+   "label": "Last heartbeat",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_wait",
+   "fieldtype": "Section Break",
+   "label": "Waiting on"
+  },
+  {
+   "description": "Timer resumes on the clock. Reply and Approval resume on an external event, with resume_at as their deadline.",
+   "fieldname": "waiting_for",
+   "fieldtype": "Select",
+   "label": "Waiting for",
+   "options": "\nTimer\nReply\nApproval"
+  },
+  {
+   "fieldname": "waiting_channel",
+   "fieldtype": "Select",
+   "label": "On channel",
+   "options": "\nAny\nWhatsApp\nEmail"
+  },
+  {
+   "description": "A message older than this cannot resume the run.",
+   "fieldname": "waiting_since",
+   "fieldtype": "Datetime",
+   "label": "Waiting since"
+  },
+  {
+   "fieldname": "col_wait",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Taken when the wait times out rather than being satisfied.",
+   "fieldname": "resume_node_alt",
+   "fieldtype": "Data",
+   "label": "Resume at node (timeout)"
+  },
+  {
+   "fieldname": "run_reason",
+   "fieldtype": "Data",
+   "label": "Started by",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_ctx",
+   "fieldtype": "Section Break",
+   "label": "Context"
+  },
+  {
+   "description": "Values carried across parks. Addressable as `vars` in conditions and templates.",
+   "fieldname": "context",
+   "fieldtype": "Code",
+   "label": "Context",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "bot",
+   "fieldtype": "Link",
+   "label": "Bot",
+   "options": "Baton Bot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-20 02:48:49.873439",
+ "modified": "2026-08-22 12:38:49.207670",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Workflow Run",

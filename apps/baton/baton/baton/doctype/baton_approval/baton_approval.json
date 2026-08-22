@@ -21,7 +21,8 @@
   "resolved_by",
   "resolved_at",
   "col_r",
-  "costs_template"
+  "costs_template",
+  "workflow_run"
  ],
  "fields": [
   {
@@ -112,12 +113,20 @@
    "fieldname": "costs_template",
    "fieldtype": "Check",
    "label": "Costs a paid template"
+  },
+  {
+   "description": "Resolving this approval resumes this run.",
+   "fieldname": "workflow_run",
+   "fieldtype": "Link",
+   "label": "Workflow run",
+   "options": "Baton Workflow Run",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-19 21:35:05.804574",
+ "modified": "2026-08-22 02:17:18.991060",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Approval",

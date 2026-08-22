@@ -12,22 +12,19 @@ the policy and rebuilding never accumulates duplicate nodes.
 import json
 
 import frappe
+
+from baton.workflow.build import node as build_node
 from frappe.utils import cint
 
 WORKFLOW_PREFIX = "Follow-up — "
 
 
+# Kept as a thin alias so this module reads as it did, while there is only one
+# node builder in the app. See baton.workflow.build.
 def _n(node_id, node_type, label, config=None, next_node=None, next_node_alt=None,
        x=420, y=0, **kw):
-    node = {
-        "node_id": node_id, "node_type": node_type, "label": label,
-        "next_node": next_node, "next_node_alt": next_node_alt,
-        "position_x": x, "position_y": y,
-    }
-    if config is not None:
-        node["config"] = json.dumps(config)
-    node.update(kw)
-    return node
+    return build_node(node_id, node_type, label, config=config, next_node=next_node,
+                      next_node_alt=next_node_alt, x=x, y=y, **kw)
 
 
 def build_workflow_from_policy(policy_name=None, trigger_doctype="CRM Lead"):
@@ -108,9 +105,19 @@ def build_workflow_from_policy(policy_name=None, trigger_doctype="CRM Lead"):
         wf = frappe.new_doc("Baton Workflow")
         wf.workflow_name = name
 
+    # Triggers live on a child table now, so a workflow can answer several
+    # things at once. Rebuilt rather than appended, since this whole function
+    # regenerates the workflow from the policy.
     wf.trigger_type = "Document Event"
     wf.trigger_doctype = trigger_doctype
     wf.trigger_event = "after_insert"
+    wf.set("triggers", [])
+    wf.append("triggers", {
+        "enabled": 1,
+        "trigger_type": "Document Event",
+        "trigger_doctype": trigger_doctype,
+        "trigger_event": "after_insert",
+    })
     # Generated workflows start switched off: nobody should discover that leads
     # were being messaged because a setup script ran.
     wf.enabled = 0

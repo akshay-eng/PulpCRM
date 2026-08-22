@@ -19,7 +19,8 @@
   "max_retries",
   "retry_delay",
   "on_error",
-  "fallback_node"
+  "fallback_node",
+  "save_as"
  ],
  "fields": [
   {
@@ -34,7 +35,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Trigger\nCondition\nUpdate Field\nCreate Document\nSend WhatsApp\nSend Email\nAI Agent\nWait\nRequest Approval\nWebhook\nCheck Reply\nCreate Task",
+   "options": "Trigger\nCondition\nUpdate Field\nCreate Document\nSend WhatsApp\nSend Email\nAI Agent\nWait\nRequest Approval\nWebhook\nCheck Reply\nCreate Task\nAwait Reply\nAI Conversation\nOffer Slots\nBook Appointment\nAssign To\nAdd Comment\nCreate Note\nConvert Lead",
    "reqd": 1
   },
   {
@@ -104,13 +105,19 @@
    "fieldname": "fallback_node",
    "fieldtype": "Data",
    "label": "Fallback node"
+  },
+  {
+   "description": "Writes this node's result into the run context under this key.",
+   "fieldname": "save_as",
+   "fieldtype": "Data",
+   "label": "Save result as"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-20 03:16:11.035040",
+ "modified": "2026-08-22 12:38:50.354706",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Workflow Node",
