@@ -92,6 +92,10 @@ def save_openwa(base_url=None, api_key=None, session_id=None):
         s.openwa_api_key = api_key.strip()
     s.save(ignore_permissions=True)
     frappe.db.commit()
+    # clear_cache(doctype=...) drops the meta cache, not the document. Every
+    # reader of this flag goes through get_cached_doc, so without the line below
+    # the canvas keeps reporting the pre-save state indefinitely.
+    frappe.clear_document_cache("Baton Settings", "Baton Settings")
     frappe.clear_cache(doctype="Baton Settings")
     return get_connections()
 
@@ -177,6 +181,7 @@ def save_meta(app_secret=None, account=None, account_name=None, phone_id=None,
         s = frappe.get_single("Baton Settings")
         s.meta_app_secret = app_secret.strip()
         s.save(ignore_permissions=True)
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
         frappe.clear_cache(doctype="Baton Settings")
 
     if not frappe.db.exists("DocType", "WhatsApp Account"):
@@ -277,6 +282,7 @@ def set_send_mode(mode):
     s.whatsapp_send_mode = mode
     s.save(ignore_permissions=True)
     frappe.db.commit()
+    frappe.clear_document_cache("Baton Settings", "Baton Settings")
     frappe.clear_cache(doctype="Baton Settings")
     return get_connections()
 

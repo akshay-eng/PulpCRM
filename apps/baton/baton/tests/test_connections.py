@@ -73,6 +73,43 @@ class TestChannelSwitch(FrappeTestCase):
         self.assertEqual(rows[0].decision, "meta")
 
 
+class TestOpenWASettingsCachedDocFreshness(FrappeTestCase):
+    """save_openwa must invalidate the cached Baton Settings doc itself --
+    every reader (openwa.is_enabled, the bot canvas's readiness check) goes
+    through get_cached_doc, so a save that only drops the meta cache leaves
+    them reading the pre-save copy until something else happens to evict it."""
+
+    def setUp(self):
+        super().setUp()
+        self._enabled = frappe.db.get_single_value("Baton Settings", "openwa_enabled")
+        self._session = frappe.db.get_single_value("Baton Settings", "openwa_session_id")
+        self._base_url = frappe.db.get_single_value("Baton Settings", "openwa_base_url")
+        # Pin a known pre-save state into the cache, the same way a fresh
+        # request would find it before the user connects OpenWA.
+        frappe.db.set_single_value("Baton Settings", "openwa_enabled", 1)
+        frappe.db.set_single_value("Baton Settings", "openwa_session_id", "")
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+
+    def tearDown(self):
+        frappe.db.set_single_value("Baton Settings", "openwa_enabled", self._enabled)
+        frappe.db.set_single_value("Baton Settings", "openwa_session_id", self._session)
+        frappe.db.set_single_value("Baton Settings", "openwa_base_url", self._base_url)
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+        super().tearDown()
+
+    def test_save_openwa_is_visible_to_the_next_cached_read(self):
+        self.assertFalse(openwa.is_enabled(), "test did not start from a no-session baseline")
+
+        connections.save_openwa(base_url="http://example.test:2785",
+                                 session_id="regression-session", api_key="test-key")
+
+        # No manual cache clear here -- if save_openwa forgets to invalidate
+        # the cached doc, this reads the stale pre-save copy and fails.
+        self.assertTrue(openwa.is_enabled())
+
+
 class TestWhatsAppTabGate(FrappeTestCase):
     """CRM hides its WhatsApp tab unless a *Meta* account is Active. On OpenWA
     there is no Meta account, so without this override the tab stays hidden
