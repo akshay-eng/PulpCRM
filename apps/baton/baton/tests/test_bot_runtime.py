@@ -1,0 +1,476 @@
+"""The bot loop, and the fence around it.
+
+The interesting tests here are the ones that assume the model is adversarial or
+simply wrong: a tool that was never granted, a fieldname that does not exist, a
+reply that is not JSON. None of those may reach a write.
+"""
+
+import json
+from unittest.mock import patch
+
+import frappe
+from frappe.tests.utils import FrappeTestCase
+
+from baton.api import bot as bot_api
+from baton.bots import runtime, tools
+from baton.bots.catalog import tools_for
+
+from .test_engine import _lead
+
+
+def _bot(name="T Bot", connectors=("crm_leads",), **kw):
+    if frappe.db.exists("Baton Bot", name):
+        frappe.delete_doc("Baton Bot", name, force=True, ignore_permissions=True)
+    doc = frappe.get_doc({
+        "doctype": "Baton Bot",
+        "bot_name": name,
+        "enabled": kw.pop("enabled", 1),
+        "instructions": kw.pop("instructions", "Look after new leads."),
+        "guardrails": kw.pop("guardrails", "Never quote a price."),
+        "max_steps": kw.pop("max_steps", 4),
+        "channel": kw.pop("channel", "WhatsApp"),
+        "connectors": [{"connector": c, "enabled": 1} for c in connectors],
+        **kw,
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc
+
+
+def _cleanup(prefix="T Bot"):
+    for name in frappe.get_all("Baton Bot", filters={"name": ["like", f"{prefix}%"]},
+                               pluck="name"):
+        for run in frappe.get_all("Baton Workflow Run", filters={"bot": name}, pluck="name"):
+            frappe.delete_doc("Baton Workflow Run", run, force=True, ignore_permissions=True)
+        frappe.delete_doc("Baton Bot", name, force=True, ignore_permissions=True)
+    frappe.db.commit()
+
+
+def _replies(*decisions):
+    """Feed the loop a fixed script instead of a model."""
+    seq = list(decisions)
+    return lambda *a, **kw: seq.pop(0) if seq else {"done": True, "summary": "nothing left"}
+
+
+class TestToolFence(FrappeTestCase):
+    """What the bot may do is decided in code, never by the prompt."""
+
+    def setUp(self):
+        self.bot = _bot(connectors=("crm_leads",))
+        self.lead = _lead()
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                    "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_a_tool_from_an_unattached_connector_is_refused(self):
+        """The bot has Leads only, so a WhatsApp send must not dispatch."""
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
+        self.assertIn("not attached", str(e.exception))
+
+    def test_an_invented_tool_is_refused(self):
+        with self.assertRaises(tools.ToolError):
+            tools.execute("delete_everything", {}, self.ctx)
+
+    def test_a_write_to_an_unattached_doctype_is_refused(self):
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("update_deals", {"name": "x", "values": {"status": "Won"}},
+                          self.ctx)
+        self.assertIn("not attached", str(e.exception))
+
+    def test_structural_fields_cannot_be_written(self):
+        """`owner` and friends are not the model's to change."""
+        with self.assertRaises(tools.ToolError):
+            tools.execute("update_leads",
+                          {"name": self.lead.name, "values": {"owner": "x@y.z"}},
+                          self.ctx)
+
+    def test_an_unknown_fieldname_is_reported_not_silently_dropped(self):
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("update_leads",
+                          {"name": self.lead.name, "values": {"staus": "New"}},
+                          self.ctx)
+        self.assertIn("staus", str(e.exception))
+
+    def test_a_real_write_goes_through_and_is_logged(self):
+        out = tools.execute("update_leads",
+                            {"name": self.lead.name, "values": {"status": "Contacted"}},
+                            self.ctx)
+        self.assertEqual(out["updated"], self.lead.name)
+        self.assertEqual(
+            frappe.db.get_value("CRM Lead", self.lead.name, "status"), "Contacted")
+        self.assertTrue(frappe.db.exists(
+            "Baton Action Log", {"workflow_run": self.run.name, "action": "bot.update"}))
+
+    def test_a_find_is_capped(self):
+        out = tools.execute("find_leads", {"limit": 5000}, self.ctx)
+        self.assertLessEqual(len(out["records"]), tools.MAX_ROWS)
+
+
+class TestDecisionValidation(FrappeTestCase):
+    """Whatever the model returns is coerced into the contract."""
+
+    def setUp(self):
+        self.allowed = {t["name"] for t in tools_for(["crm_leads"])}
+
+    def test_a_tool_that_does_not_exist_becomes_a_finish(self):
+        out = runtime._validate({"tool": "rm_rf", "args": {}}, self.allowed)
+        self.assertIsNone(out["tool"])
+        self.assertTrue(out["done"])
+
+    def test_a_non_dict_reply_finishes_rather_than_crashing(self):
+        out = runtime._validate("sorry, I cannot", self.allowed)
+        self.assertTrue(out["done"])
+
+    def test_args_that_are_not_an_object_are_dropped(self):
+        out = runtime._validate({"tool": "find_leads", "args": "everything"}, self.allowed)
+        self.assertEqual(out["args"], {})
+
+    def test_no_tool_means_done_even_when_it_says_otherwise(self):
+        out = runtime._validate({"tool": None, "done": False}, self.allowed)
+        self.assertTrue(out["done"])
+
+
+class TestBotLoop(FrappeTestCase):
+    def setUp(self):
+        self.bot = _bot(connectors=("crm_leads",))
+        self.lead = _lead()
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_it_calls_a_tool_then_finishes(self):
+        script = _replies(
+            {"thought": "set the status", "tool": "update_leads",
+             "args": {"name": self.lead.name, "values": {"status": "Contacted"}},
+             "done": False},
+            {"thought": "done", "tool": None, "done": True, "summary": "Marked it."},
+        )
+        with patch("baton.bots.runtime.chat_json", side_effect=script):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertEqual(doc.status, "Completed")
+        self.assertEqual(len(doc.steps), 2)
+        self.assertEqual(
+            frappe.db.get_value("CRM Lead", self.lead.name, "status"), "Contacted")
+
+    def test_the_step_budget_is_enforced(self):
+        """A model that never finishes must still stop."""
+        forever = lambda *a, **kw: {"tool": "find_leads", "args": {}, "done": False}
+        with patch("baton.bots.runtime.chat_json", side_effect=forever):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertEqual(doc.status, "Completed")
+        self.assertEqual(len(doc.steps), self.bot.max_steps)
+
+    def test_a_refused_tool_is_handed_back_rather_than_failing_the_run(self):
+        script = _replies(
+            {"tool": "update_leads", "args": {"name": self.lead.name,
+                                              "values": {"nope": 1}}, "done": False},
+            {"tool": None, "done": True, "summary": "Gave up on that."},
+        )
+        with patch("baton.bots.runtime.chat_json", side_effect=script):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertEqual(doc.status, "Completed")
+        self.assertEqual(doc.steps[0].status, "Skipped")
+        self.assertIn("refused", doc.steps[0].output)
+
+    def test_a_dry_run_never_calls_the_tool(self):
+        script = _replies({"tool": "update_leads",
+                           "args": {"name": self.lead.name,
+                                    "values": {"status": "Contacted"}}, "done": False})
+        before = frappe.db.get_value("CRM Lead", self.lead.name, "status")
+        with patch("baton.bots.runtime.chat_json", side_effect=script):
+            run = runtime.run_bot(self.bot.name, doc=self.lead, dry_run=True)
+
+        self.assertEqual(
+            frappe.db.get_value("CRM Lead", self.lead.name, "status"), before)
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertIn("would_call", doc.steps[0].output)
+
+    def test_waiting_for_a_reply_parks_the_run_with_a_deadline(self):
+        bot = _bot("T Bot Waiter", connectors=("crm_leads", "whatsapp"))
+        script = _replies({"tool": "wait_for_reply", "args": {}, "done": False})
+        with patch("baton.bots.runtime.chat_json", side_effect=script):
+            run = runtime.run_bot(bot.name, doc=self.lead)
+
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertEqual(doc.status, "Waiting")
+        self.assertEqual(doc.waiting_for, "Reply")
+        # Every park has a deadline, or nobody ever finds out it stalled.
+        self.assertIsNotNone(doc.resume_at)
+        self.assertEqual(doc.resume_node, "__bot__")
+
+    def test_a_parked_bot_resumes_with_what_they_said(self):
+        from .test_parking import _inbound
+
+        bot = _bot("T Bot Waiter", connectors=("crm_leads", "whatsapp"))
+        with patch("baton.bots.runtime.chat_json",
+                   side_effect=_replies({"tool": "wait_for_reply", "args": {},
+                                         "done": False})):
+            run = runtime.run_bot(bot.name, doc=self.lead)
+
+        message = _inbound(self.lead, "next tuesday please")
+        seen = {}
+
+        def capture(messages, **kw):
+            seen["prompt"] = messages[-1]["content"]
+            return {"tool": None, "done": True, "summary": "Heard them."}
+
+        with patch("baton.bots.runtime.chat_json", side_effect=capture):
+            runtime.run_bot(bot.name, resume_run=run, inbound_message=message.name)
+
+        # The reply has to reach the prompt, or the bot answers a question
+        # nobody asked.
+        self.assertIn("next tuesday please", seen["prompt"])
+        self.assertEqual(
+            frappe.db.get_value("Baton Workflow Run", run, "status"), "Completed")
+
+    def test_a_timeout_tells_the_bot_nobody_answered(self):
+        bot = _bot("T Bot Waiter", connectors=("crm_leads", "whatsapp"))
+        with patch("baton.bots.runtime.chat_json",
+                   side_effect=_replies({"tool": "wait_for_reply", "args": {},
+                                         "done": False})):
+            run = runtime.run_bot(bot.name, doc=self.lead)
+
+        seen = {}
+
+        def capture(messages, **kw):
+            seen["prompt"] = messages[-1]["content"]
+            return {"tool": None, "done": True, "summary": "Gave up."}
+
+        with patch("baton.bots.runtime.chat_json", side_effect=capture):
+            runtime.run_bot(bot.name, resume_run=run, run_reason="timeout")
+
+        self.assertIn("no_reply", seen["prompt"])
+
+
+class TestBotDefinition(FrappeTestCase):
+    """The builder's own rules."""
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_a_bot_with_no_connectors_cannot_be_saved(self):
+        problems = bot_api.validate_bot(json.dumps({
+            "bot_name": "T Bot Empty", "instructions": "Do things.", "connectors": [],
+        }))
+        self.assertTrue(any(p["level"] == "error" for p in problems))
+
+    def test_a_bot_with_no_brief_cannot_be_saved(self):
+        problems = bot_api.validate_bot(json.dumps({
+            "bot_name": "T Bot Mute", "instructions": "",
+            "connectors": [{"connector": "crm_leads", "enabled": 1}],
+        }))
+        self.assertTrue(any("instructions" in p["message"].lower()
+                            or "what it is for" in p["message"] for p in problems))
+
+    def test_the_same_connector_twice_is_an_error(self):
+        problems = bot_api.validate_bot(json.dumps({
+            "bot_name": "T Bot Dupe", "instructions": "Do things.",
+            "connectors": [{"connector": "crm_leads", "enabled": 1},
+                           {"connector": "crm_leads", "enabled": 1}],
+        }))
+        self.assertTrue(any("twice" in p["message"] for p in problems))
+
+    def test_no_trigger_is_a_warning_not_a_block(self):
+        problems = bot_api.validate_bot(json.dumps({
+            "bot_name": "T Bot Manual", "instructions": "Do things.",
+            "connectors": [{"connector": "crm_leads", "enabled": 1}], "triggers": [],
+        }))
+        self.assertEqual([p for p in problems if p["level"] == "error"], [])
+        self.assertTrue(any(p["level"] == "warning" for p in problems))
+
+    def test_saving_round_trips_connectors_and_their_config(self):
+        saved = bot_api.save_bot(json.dumps({
+            "bot_name": "T Bot Round", "instructions": "Do things.",
+            "connectors": [
+                {"connector": "http", "enabled": 1,
+                 "config": {"url": "https://example.com/x", "method": "POST"},
+                 "position_x": 120, "position_y": 40},
+            ],
+            "triggers": [{"enabled": 1, "trigger_type": "Document Event",
+                          "trigger_doctype": "CRM Lead", "trigger_event": "after_insert"}],
+        }))
+        again = bot_api.get_bot(saved["name"])
+        self.assertEqual(again["connectors"][0]["config"]["url"], "https://example.com/x")
+        self.assertEqual(again["connectors"][0]["position_x"], 120)
+        self.assertEqual(again["triggers"][0]["trigger_doctype"], "CRM Lead")
+
+    def test_a_connector_missing_its_required_config_blocks_the_save(self):
+        problems = bot_api.validate_bot(json.dumps({
+            "bot_name": "T Bot NoUrl", "instructions": "Do things.",
+            "connectors": [{"connector": "http", "enabled": 1, "config": {}}],
+        }))
+        self.assertTrue(any(p["level"] == "error" and "URL" in p["message"]
+                            for p in problems))
+
+    def test_the_tester_works_on_a_bot_that_is_switched_off(self):
+        """Trying it before turning it on is the entire point of a tester."""
+        bot = _bot("T Bot Off", enabled=0)
+        with patch("baton.bots.runtime.chat_json",
+                   return_value={"tool": None, "done": True, "summary": "ok"}):
+            out = bot_api.test_bot(bot.name)
+        self.assertTrue(out["ok"])
+
+
+class TestWebConnector(FrappeTestCase):
+    """Reading a page: the allow-list is the whole security model."""
+
+    def setUp(self):
+        self.bot = _bot("T Bot Reader", connectors=("web",))
+        self.bot.connectors[0].config = json.dumps(
+            {"urls": "https://example.com/news\nhttps://example.com/blog"})
+        self.bot.save(ignore_permissions=True)
+        frappe.db.commit()
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": None, "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_an_address_not_on_the_list_is_refused(self):
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("read_page", {"url": "https://evil.example/steal"}, self.ctx)
+        self.assertIn("not on this bot's list", str(e.exception))
+
+    def test_a_lookalike_prefix_is_refused(self):
+        """A prefix test would let example.com.attacker.net through."""
+        with self.assertRaises(tools.ToolError):
+            tools.execute("read_page",
+                          {"url": "https://example.com/news.attacker.net/x"}, self.ctx)
+
+    def test_it_can_say_which_pages_it_may_read(self):
+        out = tools.execute("list_pages", {}, self.ctx)
+        self.assertEqual(len(out["pages"]), 2)
+
+    def test_a_listed_page_comes_back_as_readable_text(self):
+        from unittest.mock import MagicMock, patch
+
+        html = ("<html><head><style>p{color:red}</style>"
+                "<script>var junk='do not send this to the model'</script></head>"
+                "<body><h1>Today</h1><p>Rates held steady.</p></body></html>")
+        resp = MagicMock(status_code=200, text=html)
+        with patch("requests.get", return_value=resp):
+            out = tools.execute("read_page", {"url": "https://example.com/news"}, self.ctx)
+
+        self.assertIn("Rates held steady.", out["text"])
+        # Script and style contents are a page of noise the model would be
+        # charged for reading.
+        self.assertNotIn("do not send this", out["text"])
+        self.assertNotIn("color:red", out["text"])
+
+    def test_a_javascript_only_page_says_so_rather_than_returning_nothing(self):
+        from unittest.mock import MagicMock, patch
+
+        resp = MagicMock(status_code=200, text="<html><body><div id='root'></div></body></html>")
+        with patch("requests.get", return_value=resp):
+            with self.assertRaises(tools.ToolError) as e:
+                tools.execute("read_page", {"url": "https://example.com/news"}, self.ctx)
+        self.assertIn("JavaScript", str(e.exception))
+
+    def test_a_long_page_is_capped(self):
+        from unittest.mock import MagicMock, patch
+
+        resp = MagicMock(status_code=200,
+                         text="<html><body>" + ("word " * 20000) + "</body></html>")
+        with patch("requests.get", return_value=resp):
+            out = tools.execute("read_page", {"url": "https://example.com/news"}, self.ctx)
+        self.assertLessEqual(len(out["text"]), tools.PAGE_CHARS)
+
+
+class TestReportingEmail(FrappeTestCase):
+    """A bot that reports to its owner, with no CRM record involved."""
+
+    def setUp(self):
+        self.bot = _bot("T Bot Reporter", connectors=("email",))
+        self.bot.connectors[0].config = json.dumps({"to": "owner@example.com"})
+        self.bot.save(ignore_permissions=True)
+        frappe.db.commit()
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": None, "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_it_emails_the_fixed_address_with_no_record_in_hand(self):
+        from unittest.mock import patch
+
+        with patch("frappe.sendmail") as send:
+            out = tools.execute("send_email",
+                                {"subject": "Digest", "body": "Here is today."}, self.ctx)
+        self.assertTrue(out["sent"])
+        self.assertEqual(send.call_args.kwargs["recipients"], ["owner@example.com"])
+
+    def test_the_model_cannot_choose_the_recipient(self):
+        from unittest.mock import patch
+
+        with patch("frappe.sendmail") as send:
+            tools.execute("send_email",
+                          {"subject": "x", "body": "y",
+                           "to": "somebody-else@example.com"}, self.ctx)
+        self.assertEqual(send.call_args.kwargs["recipients"], ["owner@example.com"])
+
+    def test_without_a_fixed_address_and_without_a_record_it_refuses(self):
+        bot = _bot("T Bot NoTo", connectors=("email",))
+        ctx = {"bot": bot, "run": self.run, "doc": None, "vars": {}, "turn": 0}
+        with self.assertRaises(tools.ToolError):
+            tools.execute("send_email", {"subject": "x", "body": "y"}, ctx)
+
+
+class TestScheduledBots(FrappeTestCase):
+    def tearDown(self):
+        _cleanup()
+
+    def test_a_bot_on_a_schedule_actually_fires(self):
+        """tick() only ever looked at workflows, so a scheduled bot was saved,
+        switched on, and silently never ran."""
+        from unittest.mock import patch
+
+        from frappe.utils import now_datetime
+
+        from baton.workflow import scheduler
+
+        bot = _bot("T Bot Cron", connectors=("crm_leads",))
+        bot.append("triggers", {"enabled": 1, "trigger_type": "Scheduled",
+                                "cron": "* * * * *"})
+        bot.save(ignore_permissions=True)
+        frappe.db.commit()
+
+        with patch("frappe.enqueue") as enq:
+            scheduler.tick()
+
+        calls = [c for c in enq.call_args_list
+                 if c.kwargs.get("bot_name") == bot.name]
+        self.assertEqual(len(calls), 1, "the bot should have been enqueued once")
+        self.assertEqual(calls[0].args[0], "baton.bots.runtime.run_bot")
+        self.assertEqual(calls[0].kwargs["run_reason"], "scheduled")
+
+    def test_a_switched_off_bot_is_not_fired_by_its_schedule(self):
+        from unittest.mock import patch
+
+        from baton.workflow import scheduler
+
+        bot = _bot("T Bot CronOff", connectors=("crm_leads",), enabled=0)
+        bot.append("triggers", {"enabled": 1, "trigger_type": "Scheduled",
+                                "cron": "* * * * *"})
+        bot.save(ignore_permissions=True)
+        frappe.db.commit()
+
+        with patch("frappe.enqueue") as enq:
+            scheduler.tick()
+        self.assertEqual([c for c in enq.call_args_list
+                          if c.kwargs.get("bot_name") == bot.name], [])

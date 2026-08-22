@@ -4,3 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+baton.patches.v1.bots_are_not_workflows
+baton.patches.v1.relayout_stacked_nodes

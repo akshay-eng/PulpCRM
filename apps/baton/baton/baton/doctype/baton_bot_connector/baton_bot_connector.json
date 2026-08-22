@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-22 12:38:48.624573",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "connector",
+  "label",
+  "enabled",
+  "col_bc",
+  "position_x",
+  "position_y",
+  "sec_bc",
+  "config"
+ ],
+ "fields": [
+  {
+   "description": "Catalog id, e.g. crm_leads. See baton.bots.catalog.",
+   "fieldname": "connector",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Connector",
+   "reqd": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "col_bc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "position_x",
+   "fieldtype": "Int",
+   "label": "X"
+  },
+  {
+   "fieldname": "position_y",
+   "fieldtype": "Int",
+   "label": "Y"
+  },
+  {
+   "fieldname": "sec_bc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "config",
+   "fieldtype": "Code",
+   "label": "Config",
+   "options": "JSON"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-22 12:38:48.624573",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Bot Connector",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

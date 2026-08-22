@@ -1,0 +1,189 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:bot_name",
+ "creation": "2026-08-22 12:38:48.908251",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "bot_name",
+  "enabled",
+  "col_b",
+  "description",
+  "sec_brief",
+  "instructions",
+  "guardrails",
+  "sec_model",
+  "ai_model",
+  "channel",
+  "col_m",
+  "max_steps",
+  "reply_timeout_hours",
+  "sec_conn",
+  "connectors",
+  "sec_trig",
+  "triggers",
+  "sec_pos",
+  "position_x",
+  "position_y"
+ ],
+ "fields": [
+  {
+   "fieldname": "bot_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "description": "Off until someone turns it on. A bot acts on real customers.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "col_b",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "What it does"
+  },
+  {
+   "fieldname": "sec_brief",
+   "fieldtype": "Section Break",
+   "label": "Brief"
+  },
+  {
+   "description": "What the bot is for and how it should behave.",
+   "fieldname": "instructions",
+   "fieldtype": "Text",
+   "label": "Instructions"
+  },
+  {
+   "description": "What it must never do. Enforced in the prompt and, where it can be, in code.",
+   "fieldname": "guardrails",
+   "fieldtype": "Text",
+   "label": "Guardrails"
+  },
+  {
+   "fieldname": "sec_model",
+   "fieldtype": "Section Break",
+   "label": "Model"
+  },
+  {
+   "description": "Blank uses the default model for the Conversation purpose.",
+   "fieldname": "ai_model",
+   "fieldtype": "Link",
+   "label": "Model credential",
+   "options": "Baton AI Model"
+  },
+  {
+   "default": "WhatsApp",
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "Talks on",
+   "options": "WhatsApp\nEmail\nNone"
+  },
+  {
+   "fieldname": "col_m",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "8",
+   "description": "How many tool calls it may make before it has to stop.",
+   "fieldname": "max_steps",
+   "fieldtype": "Int",
+   "label": "Max steps per run"
+  },
+  {
+   "default": "24",
+   "fieldname": "reply_timeout_hours",
+   "fieldtype": "Int",
+   "label": "Give up waiting after (hours)"
+  },
+  {
+   "fieldname": "sec_conn",
+   "fieldtype": "Section Break",
+   "label": "Connectors"
+  },
+  {
+   "fieldname": "connectors",
+   "fieldtype": "Table",
+   "label": "Connectors",
+   "options": "Baton Bot Connector"
+  },
+  {
+   "fieldname": "sec_trig",
+   "fieldtype": "Section Break",
+   "label": "Triggers"
+  },
+  {
+   "fieldname": "triggers",
+   "fieldtype": "Table",
+   "label": "Triggers",
+   "options": "Baton Workflow Trigger"
+  },
+  {
+   "fieldname": "sec_pos",
+   "fieldtype": "Section Break",
+   "label": "Canvas"
+  },
+  {
+   "default": "420",
+   "fieldname": "position_x",
+   "fieldtype": "Int",
+   "label": "X"
+  },
+  {
+   "default": "260",
+   "fieldname": "position_y",
+   "fieldtype": "Int",
+   "label": "Y"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-22 12:38:48.908251",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Bot",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "bot_name"
+}
