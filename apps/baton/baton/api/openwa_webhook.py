@@ -40,14 +40,67 @@ def _extract(data):
     """Pull the fields we need out of an OpenWA message payload."""
     msg = data.get("message") if isinstance(data.get("message"), dict) else data
     chat_id = msg.get("chatId") or msg.get("from") or msg.get("to") or data.get("chatId")
+    contact = msg.get("contact") if isinstance(msg.get("contact"), dict) else {}
     return {
         "id": msg.get("id") or msg.get("messageId") or data.get("id"),
         "chat_id": chat_id,
         "text": (msg.get("body") or msg.get("text") or msg.get("caption") or ""),
         "from_me": bool(msg.get("fromMe") if msg.get("fromMe") is not None else data.get("fromMe")),
-        "push_name": msg.get("pushName") or msg.get("notifyName"),
+        "push_name": msg.get("pushName") or msg.get("notifyName") or contact.get("pushName"),
         "type": msg.get("type") or "chat",
+        "media": msg.get("media") if isinstance(msg.get("media"), dict) else None,
     }
+
+
+def _attach_media(doc, m):
+    """Download the message's media and attach it to the WhatsApp Message.
+
+    Returns the file URL, or None. Never raises: a media failure must not lose
+    the message itself -- a picture that did not download is recoverable, a
+    dropped customer message is not.
+    """
+    import mimetypes
+
+    from baton.channels.openwa import MEDIA_CONTENT_TYPES, fetch_media
+
+    try:
+        blob = fetch_media(m["chat_id"], m["id"])
+        if not blob:
+            log_action("openwa.media_unavailable", status="Skipped", actor_type="CONNECTOR",
+                       reference_doctype=doc.reference_doctype,
+                       reference_name=doc.reference_name,
+                       reason="OpenWA stored no media for this message "
+                              "(archiving off, over the cap, or a URL-based send)",
+                       output={"type": m["type"], "declared": m.get("media")})
+            return None
+
+        mimetype = (m.get("media") or {}).get("mimetype") or blob["mimetype"]
+        ext = mimetypes.guess_extension(mimetype.split(";")[0]) or ".bin"
+        short = str(m["id"])[-12:].replace("/", "_")
+
+        f = frappe.get_doc({
+            "doctype": "File",
+            "file_name": f"whatsapp-{m['type']}-{short}{ext}",
+            "content": blob["content"],
+            "attached_to_doctype": "WhatsApp Message",
+            "attached_to_name": doc.name,
+            "is_private": 1,
+        }).insert(ignore_permissions=True)
+
+        doc.db_set("attach", f.file_url, update_modified=False)
+        doc.db_set("content_type", MEDIA_CONTENT_TYPES.get(m["type"], "document"),
+                   update_modified=False)
+        log_action("openwa.media_saved", actor_type="CONNECTOR",
+                   reference_doctype=doc.reference_doctype,
+                   reference_name=doc.reference_name,
+                   output={"file": f.file_url, "bytes": len(blob["content"]),
+                           "mimetype": mimetype})
+        return f.file_url
+    except Exception as e:
+        log_action("openwa.media_failed", status="Failed", actor_type="CONNECTOR",
+                   reference_doctype=doc.reference_doctype,
+                   reference_name=doc.reference_name, error=str(e)[:400])
+        return None
 
 
 @frappe.whitelist(allow_guest=True)
@@ -138,5 +191,19 @@ def inbound():
     doc.insert(ignore_permissions=True)
     frappe.db.commit()
 
+    attached = _attach_media(doc, m) if m.get("media") else None
+
+    if m.get("media") and not m["text"]:
+        # CRM prints `message` beneath an image as its caption. frappe_whatsapp
+        # marks "no caption" by storing the file path and suppressing anything
+        # starting with "/files/" -- but Baton stores media privately, so the
+        # path is "/private/files/..." and would be printed verbatim. An empty
+        # string is the honest equivalent: no caption, nothing rendered.
+        #
+        # Media is kept private deliberately: these are customer photos and
+        # documents, and a public /files/ URL is readable by anyone with the link.
+        doc.db_set("message", "" if attached else f"[{m['type']}]",
+                   update_modified=False)
+
     return {"ok": True, "message": doc.name, "author": author,
-            "reference": f"{doctype}/{name}"}
+            "reference": f"{doctype}/{name}", "media": attached}
