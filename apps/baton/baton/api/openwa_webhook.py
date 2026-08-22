@@ -194,16 +194,14 @@ def inbound():
     attached = _attach_media(doc, m) if m.get("media") else None
 
     if m.get("media") and not m["text"]:
-        # CRM prints `message` beneath an image as its caption. frappe_whatsapp
-        # marks "no caption" by storing the file path and suppressing anything
-        # starting with "/files/" -- but Baton stores media privately, so the
-        # path is "/private/files/..." and would be printed verbatim. An empty
-        # string is the honest equivalent: no caption, nothing rendered.
+        # Store the file path, matching frappe_whatsapp's convention for "no
+        # caption". The CRM UI suppresses anything that looks like a file path,
+        # so nothing is printed under the image.
         #
-        # Media is kept private deliberately: these are customer photos and
-        # documents, and a public /files/ URL is readable by anyone with the link.
-        doc.db_set("message", "" if attached else f"[{m['type']}]",
-                   update_modified=False)
+        # An empty string is NOT equivalent: CRM's reply composer renders on
+        # `v-if="reply?.message"`, so an empty message makes Reply silently do
+        # nothing on every uncaptioned image.
+        doc.db_set("message", attached or f"[{m['type']}]", update_modified=False)
 
     return {"ok": True, "message": doc.name, "author": author,
             "reference": f"{doctype}/{name}", "media": attached}

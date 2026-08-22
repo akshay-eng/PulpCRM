@@ -37,7 +37,12 @@ class BatonWhatsAppMessage(WhatsAppMessage):
         from baton.audit import log_action
 
         try:
-            resp = openwa.send_text(self.to, self.message)
+            # CRM sets is_reply/reply_to_message_id; without passing it on,
+            # a reply sends as an ordinary message and the quote is lost.
+            resp = openwa.send_text(
+                self.to, self.message,
+                quoted_message_id=self.reply_to_message_id if self.is_reply else None,
+            )
             self.message_id = (
                 resp.get("id") or resp.get("messageId")
                 or (resp.get("data") or {}).get("id")

@@ -123,22 +123,33 @@ class TestFetchMediaFailure(FrappeTestCase):
 
 
 class TestCaptionHandling(FrappeTestCase):
-    """CRM prints `message` beneath an image as its caption. What belongs there
-    when the sender wrote nothing depends on whether the media arrived."""
+    """An uncaptioned media message stores its own file path in `message`.
 
-    def test_private_path_would_not_be_suppressed_by_crm(self):
-        """frappe_whatsapp signals "no caption" with a path starting /files/.
-        Baton stores media privately, so that convention does not apply and the
-        path would be printed verbatim under the image."""
-        private = "/private/files/whatsapp-image-abc.jpg"
-        self.assertFalse(private.startswith("/files/"))
+    That is frappe_whatsapp's convention and it carries real weight: CRM's reply
+    composer renders on `v-if="reply?.message"`, so blanking it makes Reply
+    silently do nothing on every uncaptioned image. Suppressing the path is the
+    UI's job, not the data's.
+    """
 
-    def test_marker_only_when_media_is_missing(self):
-        """An empty bubble looks broken; a marker says what failed to load."""
+    def test_uncaptioned_media_stores_its_path_not_an_empty_string(self):
         for attached, text, expected in (
-            ("/private/files/x.jpg", "", ""),          # arrived -> no caption
-            (None, "", "[image]"),                     # failed  -> say so
-            ("/private/files/x.jpg", "look", "look"),  # real caption wins
+            ("/private/files/x.jpg", "", "/private/files/x.jpg"),
+            (None, "", "[image]"),                     # nothing arrived -> say so
+            ("/private/files/x.jpg", "look", "look"),  # a real caption wins
         ):
-            got = text if text else ("" if attached else "[image]")
+            got = text or (attached or "[image]")
             self.assertEqual(got, expected)
+
+    def test_private_paths_are_not_matched_by_crms_own_check(self):
+        """Why the frontend needed teaching: frappe_whatsapp only suppresses
+        "/files/", and Baton stores media privately."""
+        self.assertFalse("/private/files/x.jpg".startswith("/files/"))
+
+    def test_both_path_forms_match_the_shared_pattern(self):
+        """The regex the frontend now uses for caption and quote suppression."""
+        import re
+        pattern = re.compile(r"^/(private/)?files/")
+        self.assertTrue(pattern.match("/files/x.jpg"))
+        self.assertTrue(pattern.match("/private/files/x.jpg"))
+        self.assertFalse(pattern.match("look at this"))
+        self.assertFalse(pattern.match(""))

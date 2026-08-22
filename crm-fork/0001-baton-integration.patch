@@ -12,6 +12,87 @@ index 62719b9..d7ca5e6 100644
      "@vueuse/integrations": "^10.3.0",
      "dompurify": "^3.3.3",
      "frappe-ui": "1.0.0-beta.29",
+diff --git a/frontend/src/components/Activities/WhatsAppArea.vue b/frontend/src/components/Activities/WhatsAppArea.vue
+index 2e3a905..aeac9f5 100644
+--- a/frontend/src/components/Activities/WhatsAppArea.vue
++++ b/frontend/src/components/Activities/WhatsAppArea.vue
+@@ -44,7 +44,13 @@
+             <div v-if="whatsapp.header" class="text-base-semibold">
+               {{ whatsapp.header }}
+             </div>
+-            <div v-html="formatWhatsAppMessage(whatsapp.reply_message)" />
++            <div
++              v-if="isFilePath(whatsapp.reply_message)"
++              class="italic text-ink-gray-5"
++            >
++              {{ __('Media') }}
++            </div>
++            <div v-else v-html="formatWhatsAppMessage(whatsapp.reply_message)" />
+             <div v-if="whatsapp.footer" class="text-xs text-ink-gray-5">
+               {{ whatsapp.footer }}
+             </div>
+@@ -101,7 +107,7 @@
+               @click="() => openFileInAnotherTab(whatsapp.attach)"
+             />
+             <div
+-              v-if="!whatsapp.message.startsWith('/files/')"
++              v-if="!isFilePath(whatsapp.message)"
+               class="mt-1.5"
+               v-html="formatWhatsAppMessage(whatsapp.message)"
+             />
+@@ -132,7 +138,7 @@
+               class="h-40 cursor-pointer rounded-md"
+             />
+             <div
+-              v-if="!whatsapp.message.startsWith('/files/')"
++              v-if="!isFilePath(whatsapp.message)"
+               class="mt-1.5"
+               v-html="formatWhatsAppMessage(whatsapp.message)"
+             />
+@@ -253,6 +259,13 @@ function reactOnMessage(name, emoji) {
+ const reply = defineModel('reply', { type: Object, default: () => ({}) })
+ const replyMode = ref(false)
+ 
++// A media message with no caption stores its own file path in `message`;
++// frappe_whatsapp writes "/files/...", Baton stores media privately so it
++// writes "/private/files/...". Either way it is a path, not a caption.
++function isFilePath(message) {
++  return /^\/(private\/)?files\//.test(message || '')
++}
++
+ function messageOptions(message) {
+   return [
+     {
+diff --git a/frontend/src/components/Activities/WhatsAppBox.vue b/frontend/src/components/Activities/WhatsAppBox.vue
+index 653c598..97af78f 100644
+--- a/frontend/src/components/Activities/WhatsAppBox.vue
++++ b/frontend/src/components/Activities/WhatsAppBox.vue
+@@ -16,7 +16,11 @@
+       >
+         {{ reply.from_name || __('You') }}
+       </div>
++      <div v-if="isFilePath(reply.message)" class="max-h-12 italic text-ink-gray-5">
++        {{ __('Media') }}
++      </div>
+       <div
++        v-else
+         class="max-h-12 overflow-hidden"
+         v-html="sanitizeHTML(reply.message)"
+       />
+@@ -91,6 +95,13 @@ const doc = defineModel({ type: Object, default: () => ({}) })
+ const whatsapp = defineModel('whatsapp', { type: Object, default: () => ({}) })
+ const reply = defineModel('reply', { type: Object, default: () => ({}) })
+ 
++// An uncaptioned media message stores its own file path in `message`
++// ("/files/..." from frappe_whatsapp, "/private/files/..." from Baton). Quoting
++// one should read as "Media", not as a raw path.
++function isFilePath(message) {
++  return /^\/(private\/)?files\//.test(message || '')
++}
++
+ const { capture } = useTelemetry()
+ 
+ const rows = ref(1)
 diff --git a/frontend/src/components/Layouts/AppSidebar.vue b/frontend/src/components/Layouts/AppSidebar.vue
 index 9b36dc2..49840bc 100644
 --- a/frontend/src/components/Layouts/AppSidebar.vue
