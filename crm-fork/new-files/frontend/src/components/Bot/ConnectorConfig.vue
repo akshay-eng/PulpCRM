@@ -108,11 +108,12 @@ const props = defineProps({
 })
 defineEmits(['remove'])
 
+// WhatsApp is configured in CRM's own WhatsApp tab, not in Baton's settings.
 const SETTINGS_PAGE = {
-  whatsapp: 'Models & channels',
+  whatsapp: 'WhatsApp',
   email: 'Accounts',
   calendar: 'Working hours',
-  ai_model: 'Models & channels',
+  ai_model: 'AI models',
 }
 
 const value = (f) => props.node.config?.[f.field] ?? f.default ?? ''
@@ -123,7 +124,7 @@ function set(f, v) {
 }
 
 function openSettings() {
-  activeSettingsPage.value = SETTINGS_PAGE[props.spec.credential?.id] || 'Models & channels'
+  activeSettingsPage.value = SETTINGS_PAGE[props.spec.credential?.id] || 'AI models'
   showSettings.value = true
 }
 </script>

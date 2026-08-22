@@ -30,6 +30,7 @@ def _answers(**kw):
     return out
 
 
+
 class TestScoring(FrappeTestCase):
     def test_all_perfect_is_100(self):
         p = _profile()
@@ -170,4 +171,4 @@ def tearDownModule():
     # leads these tests create -- they would otherwise pile up in the site.
     from .test_engine import _delete_test_leads
 
-    _delete_test_leads()
+    _delete_test_leads('Qual Test')

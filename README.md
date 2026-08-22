@@ -33,7 +33,9 @@ upgradable.
 | **Meeting booking** — working hours, holidays, timezones, conflict-safe holds, Google Calendar | ✅ tested |
 | **Signed inbound webhooks** as a workflow trigger (fails closed) | ✅ tested |
 | **OpenWA connector** — self-hosted WhatsApp bridge, HMAC-verified | ✅ live-tested |
-| **Credentials in Settings** — models and channels, selected by builders, never held by them | ✅ |
+| **Connections UI** — pick Meta or OpenWA, configure and test | ✅ in CRM Settings → Integrations |
+| **Ask panel** — query CRM data in English from a side panel | ✅ |
+| **Credentials in Settings** — models selected by builders, never held by them | ✅ |
 | Meta Lead Ads ingestion | ⏳ native to Frappe CRM; hardening pending |
 | Deal monitoring, escalation, MCP, agent builder, dashboard | ⏳ not started |
 
@@ -149,8 +151,8 @@ holds a key, and "there isn't one yet" links straight to the page that fixes it.
 
 | Setting | Where |
 |---|---|
-| LLM provider, model, API key | **Settings → AI → Models & channels** |
-| WhatsApp channel, credentials, webhook | **Settings → AI → Models & channels** |
+| LLM provider, model, API key | **Settings → AI → AI models** |
+| WhatsApp channel, credentials, webhook | **Settings → Integrations → WhatsApp** |
 | Conversational agents (used by workflows) | **Settings → AI → Agents** |
 | Working hours, holidays, services | **Settings → Scheduling → Working hours** |
 | Google sign-in, send-as-me Gmail | **Settings → Google → Sign-in & Gmail** |
@@ -173,11 +175,11 @@ goes quiet the moment a human steps in. On Meta, a message you send from your
 own phone never reaches the API, so handoff detection is partial. OpenWA rides
 the real account and sees it, which makes the guarantee complete.
 
-Both are supported; switch between them under Settings → AI → Models & channels.
+Both are supported; switch between them under Settings → Integrations → WhatsApp.
 
 Baton ships **switched off**. The master switch is at the top of
-**Settings → AI → Models & channels**, with per-channel `Auto` / `Draft` / `Off`
-underneath it.
+**Settings → AI → AI models**, with `Auto` / `Draft` / `Off` for outgoing
+messages beside it.
 
 Credentials can be **tested while the switch is off** — one throwaway prompt,
 reply discarded, nothing reaches a customer. Requiring AI to be on before you

@@ -52,7 +52,7 @@
                    ...models.map((m) => ({ label: m, value: m }))]"
       />
       <button class="mt-1.5 flex items-center gap-1 text-p-sm text-ink-gray-6 hover:text-ink-gray-8"
-              @click="openSettings('Models & channels')">
+              @click="openSettings('AI models')">
         <LucideSettings class="h-3 w-3" />
         {{ models.length ? __('Manage model credentials') : __('No model configured — set one up') }}
       </button>

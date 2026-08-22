@@ -73,6 +73,52 @@ class TestChannelSwitch(FrappeTestCase):
         self.assertEqual(rows[0].decision, "meta")
 
 
+class TestWhatsAppTabGate(FrappeTestCase):
+    """CRM hides its WhatsApp tab unless a *Meta* account is Active. On OpenWA
+    there is no Meta account, so without this override the tab stays hidden
+    while WhatsApp is demonstrably working."""
+
+    def setUp(self):
+        super().setUp()
+        self._original = frappe.db.get_single_value("Baton Settings", "openwa_enabled")
+        self._session = frappe.db.get_single_value("Baton Settings", "openwa_session_id")
+
+    def tearDown(self):
+        frappe.db.set_single_value("Baton Settings", "openwa_enabled", self._original)
+        frappe.db.set_single_value("Baton Settings", "openwa_session_id", self._session)
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+        super().tearDown()
+
+    def test_enabled_when_openwa_is_active(self):
+        from baton.api.whatsapp import is_whatsapp_enabled
+
+        # "OpenWA is on" needs a session as well as the flag, and the test must
+        # supply it rather than inheriting whatever the site happens to hold --
+        # this passed for weeks only because the dev site had one configured.
+        frappe.db.set_single_value("Baton Settings", "openwa_session_id", "test-session")
+        frappe.db.commit()
+        connections.set_active_channel("openwa")
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+        self.assertTrue(is_whatsapp_enabled())
+
+    def test_falls_back_to_crm_check_when_openwa_is_off(self):
+        """With OpenWA off the answer must come from CRM's own Meta check,
+        not from us -- otherwise the tab would claim Meta works when it does not."""
+        from baton.api.whatsapp import is_whatsapp_enabled
+        from crm.api.whatsapp import is_whatsapp_enabled as crm_check
+
+        connections.set_active_channel("meta")
+        frappe.clear_cache(doctype="Baton Settings")
+        self.assertEqual(bool(is_whatsapp_enabled()), bool(crm_check()))
+
+    def test_override_is_registered(self):
+        overrides = frappe.get_hooks("override_whitelisted_methods") or {}
+        target = overrides.get("crm.api.whatsapp.is_whatsapp_enabled")
+        self.assertTrue(target)
+        self.assertIn("baton.api.whatsapp.is_whatsapp_enabled", target)
+
+
 class TestAddressing(FrappeTestCase):
     def test_indian_number_normalisation(self):
         for raw in ("9876543210", "+91 98765 43210", "919876543210", "09876543210"):

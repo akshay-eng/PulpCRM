@@ -78,6 +78,7 @@ def _delete_test_workflows(*prefixes):
             frappe.delete_doc("Baton Workflow", name, force=True, ignore_permissions=True)
     frappe.db.commit()
 
+
 class PolicyTestCase(FrappeTestCase):
     """Restores Baton Settings after every test."""
 
@@ -321,4 +322,9 @@ class TestHumanOverrideWins(PolicyTestCase):
 
 
 def tearDownModule():
+    # One shared sweep rather than a copy per module: it also clears orphaned
+    # approvals, which is what made an order-dependent failure reproducible.
+    from .test_engine import _delete_test_leads
+
+    _delete_test_leads('Handoff Test')
     _delete_test_workflows('H ')

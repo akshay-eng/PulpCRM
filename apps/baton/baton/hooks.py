@@ -70,6 +70,9 @@ scheduler_events = {
 # cannot silently remove the check.
 override_whitelisted_methods = {
     "frappe_whatsapp.utils.webhook.webhook": "baton.api.webhook.webhook",
+    # CRM decides whether to show its WhatsApp tab by looking for an Active
+    # Meta account. OpenWA has none, so the tab needs a broader answer.
+    "crm.api.whatsapp.is_whatsapp_enabled": "baton.api.whatsapp.is_whatsapp_enabled",
 }
 
 override_doctype_class = {

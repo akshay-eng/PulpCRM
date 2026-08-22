@@ -54,8 +54,14 @@ def _lead(**kw):
 TEST_LEAD_NAMES = ("Engine Test", "Engine Renamed", "Handoff Test", "Qual Test")
 
 
-def _delete_test_leads():
-    for lead_name in TEST_LEAD_NAMES:
+def _delete_test_leads(*lead_names):
+    """Remove leads these tests create, and everything hanging off them.
+
+    The engine commits mid-test, so FrappeTestCase's rollback cannot take them
+    back and they pile up in the real CRM. Called with no names it sweeps every
+    fixture name this suite uses.
+    """
+    for lead_name in lead_names or TEST_LEAD_NAMES:
         for name in frappe.get_all("CRM Lead", filters={"lead_name": lead_name},
                                    pluck="name"):
             # Baton Approval matters as much as the lead itself: approvals are
@@ -97,6 +103,7 @@ def _delete_test_workflows(*prefixes):
                                   ignore_permissions=True)
             frappe.delete_doc("Baton Workflow", name, force=True, ignore_permissions=True)
     frappe.db.commit()
+
 
 class TestSafeEval(FrappeTestCase):
     def test_extended_builtins_available(self):
@@ -266,4 +273,5 @@ class TestAuditTrail(FrappeTestCase):
 
 
 def tearDownModule():
+    _delete_test_leads('Engine Test')
     _delete_test_workflows('T ')

@@ -256,6 +256,10 @@ def set_active_channel(channel):
     s.openwa_enabled = 1 if channel == CHANNEL_OPENWA else 0
     s.save(ignore_permissions=True)
     frappe.db.commit()
+    # clear_cache(doctype=...) drops the meta cache, not the document. Every
+    # reader of this flag goes through get_cached_doc, so without the line below
+    # the switch appears to work and nothing actually changes channel.
+    frappe.clear_document_cache("Baton Settings", "Baton Settings")
     frappe.clear_cache(doctype="Baton Settings")
 
     from baton.audit import log_action

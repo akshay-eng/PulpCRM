@@ -13,31 +13,75 @@ index 62719b9..d7ca5e6 100644
      "dompurify": "^3.3.3",
      "frappe-ui": "1.0.0-beta.29",
 diff --git a/frontend/src/components/Layouts/AppSidebar.vue b/frontend/src/components/Layouts/AppSidebar.vue
-index 9b36dc2..bc11052 100644
+index 9b36dc2..49840bc 100644
 --- a/frontend/src/components/Layouts/AppSidebar.vue
 +++ b/frontend/src/components/Layouts/AppSidebar.vue
-@@ -174,6 +174,7 @@
+@@ -18,6 +18,17 @@
+       <div class="flex h-full flex-col p-2">
+         <UserDropdown :isCollapsed="isCollapsed" />
+ 
++        <!-- Ask: opens the right-hand panel for querying CRM data in English. -->
++        <button
++          class="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-ink-gray-8 transition hover:bg-surface-gray-3"
++          :class="askPanelOpen ? 'bg-surface-gray-3' : ''"
++          :title="__('Ask')"
++          @click="toggleAskPanel"
++        >
++          <LucideSparkles class="h-4 w-4 shrink-0 text-orange-500" />
++          <span v-if="!isCollapsed" class="text-base">{{ __('Ask') }}</span>
++        </button>
++
+         <!-- overflow-y-auto forces overflow-x to clip too, which would slice the
+              active row's shadow. Widen the scroll box to the sidebar edges and
+              pad the content back in so the shadow has room. -->
+@@ -174,6 +185,9 @@
  <script setup>
  import BrushCleaningIcon from '~icons/lucide/brush-cleaning'
  import LucideLayoutDashboard from '~icons/lucide/layout-dashboard'
++import LucideWorkflow from '~icons/lucide/workflow'
 +import LucideSparkles from '~icons/lucide/sparkles'
++import { askPanelOpen, toggleAskPanel } from '@/composables/ask'
  import CRMLogo from '@/components/Icons/CRMLogo.vue'
  import InviteIcon from '@/components/Icons/InviteIcon.vue'
  import ConvertIcon from '@/components/Icons/ConvertIcon.vue'
-@@ -292,6 +293,11 @@ const links = [
+@@ -292,6 +306,11 @@ const links = [
      icon: PhoneIcon,
      to: 'Call Logs',
    },
 +  {
 +    label: 'AI Automation',
-+    icon: LucideSparkles,
++    icon: LucideWorkflow,
 +    to: 'Automation',
 +  },
  ]
  
  const allViews = computed(() => {
+diff --git a/frontend/src/components/Layouts/DesktopLayout.vue b/frontend/src/components/Layouts/DesktopLayout.vue
+index 6212121..3088e2a 100644
+--- a/frontend/src/components/Layouts/DesktopLayout.vue
++++ b/frontend/src/components/Layouts/DesktopLayout.vue
+@@ -1,10 +1,11 @@
+ <template>
+   <div class="flex h-screen w-screen">
+     <AppSidebar />
+-    <div class="flex-1 flex flex-col h-full overflow-auto bg-surface-base">
++    <div class="flex-1 min-w-0 flex flex-col h-full overflow-auto bg-surface-base">
+       <AppHeader />
+       <slot />
+     </div>
++    <AskPanel :open="askPanelOpen" @close="askPanelOpen = false" />
+     <GlobalModals />
+   </div>
+ </template>
+@@ -12,4 +13,6 @@
+ import AppSidebar from '@/components/Layouts/AppSidebar.vue'
+ import AppHeader from '@/components/Layouts/AppHeader.vue'
+ import GlobalModals from '@/components/Modals/GlobalModals.vue'
++import AskPanel from '@/components/Chat/AskPanel.vue'
++import { askPanelOpen } from '@/composables/ask'
+ </script>
 diff --git a/frontend/src/components/Settings/Settings.vue b/frontend/src/components/Settings/Settings.vue
-index a9b87b4..fecc3d7 100644
+index a9b87b4..63f84ba 100644
 --- a/frontend/src/components/Settings/Settings.vue
 +++ b/frontend/src/components/Settings/Settings.vue
 @@ -75,6 +75,14 @@ import DashboardSettings from '@/components/Settings/DashboardSettings.vue'
@@ -48,9 +92,9 @@ index a9b87b4..fecc3d7 100644
 +import BatonScheduling from '@/components/Settings/Baton/BatonScheduling.vue'
 +import BatonConnections from '@/components/Settings/Baton/BatonConnections.vue'
 +import BatonGoogle from '@/components/Settings/Baton/BatonGoogle.vue'
-+import LucideChrome from '~icons/lucide/chrome'
 +import LucideBot from '~icons/lucide/bot'
-+import LucideKeyRound from '~icons/lucide/key-round'
++import LucideSparkles from '~icons/lucide/sparkles'
++import LucideChrome from '~icons/lucide/chrome'
 +import LucideCalendarClock from '~icons/lucide/calendar-clock'
  import Icon from '@/components/Icon.vue'
  import { usersStore } from '@/stores/users'
@@ -63,25 +107,14 @@ index a9b87b4..fecc3d7 100644
 +      label: __('AI'),
 +      items: [
 +        {
-+          label: __('Models & channels'),
-+          icon: markRaw(h(LucideKeyRound)),
++          label: __('AI models'),
++          icon: markRaw(h(LucideSparkles)),
 +          component: markRaw(BatonConnections),
 +        },
 +        {
 +          label: __('Agents'),
 +          icon: markRaw(h(LucideBot)),
 +          component: markRaw(BatonAgents),
-+        },
-+      ],
-+      condition: () => isManager(),
-+    },
-+    {
-+      label: __('Google'),
-+      items: [
-+        {
-+          label: __('Sign-in & Gmail'),
-+          icon: markRaw(h(LucideChrome)),
-+          component: markRaw(BatonGoogle),
 +        },
 +      ],
 +      condition: () => isManager(),
@@ -97,9 +130,180 @@ index a9b87b4..fecc3d7 100644
 +      ],
 +      condition: () => isManager(),
 +    },
++    {
++      label: __('Google'),
++      items: [
++        {
++          label: __('Sign-in & Gmail'),
++          icon: markRaw(h(LucideChrome)),
++          component: markRaw(BatonGoogle),
++        },
++      ],
++      condition: () => isManager(),
++    },
      {
        label: __('Customization'),
        items: [
+diff --git a/frontend/src/components/Settings/WhatsAppSettings.vue b/frontend/src/components/Settings/WhatsAppSettings.vue
+index db46a4b..82aae74 100644
+--- a/frontend/src/components/Settings/WhatsAppSettings.vue
++++ b/frontend/src/components/Settings/WhatsAppSettings.vue
+@@ -1,6 +1,154 @@
+ <template>
+-  <SettingsPage doctype="WhatsApp Settings" class="p-8" />
++  <div class="flex h-full flex-col overflow-y-auto">
++    <!-- Meta Cloud API: the existing form, unchanged. -->
++    <SettingsPage doctype="WhatsApp Settings" class="p-8 pb-0" />
++
++    <!-- OpenWA: a separate connection, configured on its own terms. -->
++    <div class="border-t border-outline-gray-2 p-8">
++      <div class="flex items-start justify-between gap-4">
++        <div>
++          <h2 class="flex items-center gap-2 text-2xl-semibold leading-none text-ink-gray-8">
++            {{ __('OpenWA Connection') }}
++            <Badge v-if="connected" :theme="active ? 'orange' : 'green'" variant="subtle">
++              {{ active ? __('Active') : __('Connected') }}
++            </Badge>
++          </h2>
++          <p class="mt-2 max-w-2xl text-p-base text-ink-gray-6">
++            {{ __('A self-hosted WhatsApp bridge that runs on your own account. No approved templates and no 24-hour window, and it can see replies you type on your own phone — which is what lets automation stand down when you step in. Unofficial, and it carries account-ban risk.') }}
++          </p>
++        </div>
++
++        <Button
++          v-if="!connected"
++          variant="solid"
++          :label="__('Add connection')"
++          @click="showDialog = true"
++        >
++          <template #prefix><LucidePlus class="h-4 w-4" /></template>
++        </Button>
++      </div>
++
++      <!-- configured state -->
++      <div
++        v-if="connected"
++        class="mt-5 rounded-lg border border-outline-gray-2 bg-surface-white"
++      >
++        <div class="grid grid-cols-3 gap-4 px-4 py-4">
++          <div>
++            <div class="text-xs text-ink-gray-5">{{ __('Server') }}</div>
++            <div class="mt-0.5 truncate text-base text-ink-gray-8">{{ openwa.base_url }}</div>
++          </div>
++          <div>
++            <div class="text-xs text-ink-gray-5">{{ __('Session') }}</div>
++            <div class="mt-0.5 truncate text-base text-ink-gray-8">
++              {{ status.name || openwa.session_id }}
++              <span v-if="status.status" class="text-ink-gray-5">· {{ status.status }}</span>
++            </div>
++          </div>
++          <div>
++            <div class="text-xs text-ink-gray-5">{{ __('Inbound webhook') }}</div>
++            <div class="mt-0.5 text-base"
++                 :class="openwa.has_webhook_secret ? 'text-ink-gray-8' : 'text-orange-600'">
++              {{ openwa.has_webhook_secret ? __('Registered') : __('Not registered') }}
++            </div>
++          </div>
++        </div>
++
++        <div class="flex items-center gap-2 border-t border-outline-gray-2 px-4 py-3">
++          <Button
++            v-if="!active"
++            variant="solid"
++            :label="__('Use for WhatsApp')"
++            @click="useOpenWA"
++          />
++          <Button :label="__('Test connection')" :loading="testing" @click="test" />
++          <Button :label="__('Edit')" @click="showDialog = true" />
++          <Button
++            v-if="!openwa.has_webhook_secret"
++            :label="__('Register webhook')"
++            :loading="hooking"
++            @click="registerHook"
++          />
++          <span
++            v-if="message"
++            class="text-xs"
++            :class="message.ok ? 'text-green-700' : 'text-red-600'"
++          >{{ message.text }}</span>
++        </div>
++      </div>
++
++      <div v-else class="mt-5 rounded-lg border border-dashed border-outline-gray-3 px-4 py-6 text-center">
++        <div class="text-base text-ink-gray-6">{{ __('No OpenWA connection yet.') }}</div>
++        <div class="mt-1 text-xs text-ink-gray-5">
++          {{ __('You will need the server URL, an API key and a logged-in session.') }}
++        </div>
++      </div>
++    </div>
++
++    <OpenWADialog v-model="showDialog" @connected="load" />
++  </div>
+ </template>
++
+ <script setup>
+ import SettingsPage from '@/components/Settings/SettingsPage.vue'
++import OpenWADialog from '@/components/Settings/WhatsApp/OpenWADialog.vue'
++import { Button, Badge, call, toast } from 'frappe-ui'
++import { ref, computed, onMounted } from 'vue'
++import LucidePlus from '~icons/lucide/plus'
++
++const data = ref({})
++const status = ref({})
++const showDialog = ref(false)
++const testing = ref(false)
++const hooking = ref(false)
++const message = ref(null)
++
++const openwa = computed(() => data.value.openwa || {})
++const connected = computed(() => Boolean(openwa.value.has_api_key && openwa.value.session_id))
++const active = computed(() => data.value.active_channel === 'openwa')
++
++async function load() {
++  data.value = await call('baton.api.connections.get_connections')
++  if (connected.value) {
++    try {
++      status.value = await call('baton.api.connections.test_openwa')
++    } catch {
++      status.value = {}
++    }
++  }
++}
++
++async function useOpenWA() {
++  data.value = await call('baton.api.connections.set_active_channel', { channel: 'openwa' })
++  toast.success(__('WhatsApp now goes through OpenWA'))
++}
++
++async function test() {
++  testing.value = true
++  try {
++    const r = await call('baton.api.connections.test_openwa')
++    status.value = r
++    message.value = r.ok
++      ? { ok: true, text: __('Session “{0}” is {1}.', [r.name || '', r.status]) }
++      : { ok: false, text: r.error || __('Could not reach OpenWA.') }
++  } finally {
++    testing.value = false
++  }
++}
++
++async function registerHook() {
++  hooking.value = true
++  try {
++    const s = await call('baton.api.connections.suggest_webhook_url')
++    await call('baton.api.connections.register_openwa_webhook', { public_url: s.url })
++    toast.success(__('Webhook registered'))
++    await load()
++  } catch (e) {
++    message.value = { ok: false, text: e.message || String(e) }
++  } finally {
++    hooking.value = false
++  }
++}
++
++onMounted(load)
+ </script>
 diff --git a/frontend/src/router.js b/frontend/src/router.js
 index 1aec80c..3fd786b 100644
 --- a/frontend/src/router.js
