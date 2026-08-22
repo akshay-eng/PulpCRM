@@ -81,3 +81,28 @@ def requalify(lead):
                    error=str(e)[:600],
                    reason="Re-qualification after inbound message failed")
         frappe.log_error(title=f"Baton requalify failed for {lead}")
+
+
+@frappe.whitelist()
+def is_whatsapp_enabled():
+    """Whether the CRM should show its WhatsApp tab.
+
+    Frappe CRM answers this by checking that a *Meta* WhatsApp Account exists
+    and is Active. Running on OpenWA there is no Meta account and never will
+    be, so the tab stayed hidden even though WhatsApp was fully working --
+    sending, receiving and threading.
+
+    Installed as an override of crm.api.whatsapp.is_whatsapp_enabled rather
+    than by marking a fake Meta account Active, which would claim a channel
+    works when it does not.
+    """
+    from baton.channels import openwa
+
+    if openwa.is_enabled():
+        return True
+
+    # Direct import, not an HTTP call: override_whitelisted_methods only
+    # rewrites request dispatch, so this reaches the original implementation.
+    from crm.api.whatsapp import is_whatsapp_enabled as crm_is_whatsapp_enabled
+
+    return crm_is_whatsapp_enabled()
