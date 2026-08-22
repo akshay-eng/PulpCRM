@@ -1,0 +1,197 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:server_name",
+ "creation": "2026-08-22 18:07:20.745507",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "server_name",
+  "enabled",
+  "col_s",
+  "transport",
+  "description",
+  "sec_http",
+  "url",
+  "col_h",
+  "auth_header",
+  "auth_value",
+  "sec_stdio",
+  "command",
+  "args",
+  "col_st",
+  "cwd",
+  "env_json",
+  "sec_tools",
+  "tools",
+  "last_discovered_at",
+  "last_error",
+  "timeout"
+ ],
+ "fields": [
+  {
+   "fieldname": "server_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "col_s",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Streamable HTTP",
+   "fieldname": "transport",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Transport",
+   "options": "Streamable HTTP\nStdio",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "depends_on": "eval:doc.transport=='Streamable HTTP'",
+   "fieldname": "sec_http",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "description": "e.g. https://tools.example.com/mcp",
+   "fieldname": "url",
+   "fieldtype": "Data",
+   "label": "URL"
+  },
+  {
+   "fieldname": "col_h",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "e.g. Authorization. Leave blank if the server needs none.",
+   "fieldname": "auth_header",
+   "fieldtype": "Data",
+   "label": "Auth header name"
+  },
+  {
+   "description": "e.g. Bearer xxx. Stored encrypted, never sent to the browser.",
+   "fieldname": "auth_value",
+   "fieldtype": "Password",
+   "label": "Auth header value"
+  },
+  {
+   "depends_on": "eval:doc.transport=='Stdio'",
+   "fieldname": "sec_stdio",
+   "fieldtype": "Section Break",
+   "label": "Command"
+  },
+  {
+   "description": "e.g. npx",
+   "fieldname": "command",
+   "fieldtype": "Data",
+   "label": "Command"
+  },
+  {
+   "description": "One per line, e.g. -y then @modelcontextprotocol/server-filesystem",
+   "fieldname": "args",
+   "fieldtype": "Small Text",
+   "label": "Arguments"
+  },
+  {
+   "fieldname": "col_st",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cwd",
+   "fieldtype": "Data",
+   "label": "Working directory"
+  },
+  {
+   "description": "Values here are passed to the process. Prefer a secret in auth_value where the server supports a header.",
+   "fieldname": "env_json",
+   "fieldtype": "Code",
+   "label": "Environment (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "sec_tools",
+   "fieldtype": "Section Break",
+   "label": "Tools"
+  },
+  {
+   "fieldname": "tools",
+   "fieldtype": "Table",
+   "label": "Discovered tools",
+   "options": "Baton MCP Tool"
+  },
+  {
+   "fieldname": "last_discovered_at",
+   "fieldtype": "Datetime",
+   "label": "Last discovered",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last error",
+   "read_only": 1
+  },
+  {
+   "default": "60",
+   "fieldname": "timeout",
+   "fieldtype": "Int",
+   "label": "Timeout (s)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-22 18:07:20.745507",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton MCP Server",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "server_name"
+}

@@ -9,6 +9,9 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=15.0.0" # Installed and managed by bench.
+    # Lets a bot borrow tools from any MCP server, which is how it reaches
+    # anything Baton does not ship a connector for.
+    "mcp>=2.0.0",
 ]
 
 [build-system]

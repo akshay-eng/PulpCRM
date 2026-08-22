@@ -1,3 +1,4 @@
+import frappe
 """What a bot can be plugged into.
 
 A connector is a *capability*, granted by dragging it onto the bot. Each one
@@ -375,4 +376,30 @@ def connector_of(tool_name):
         for t in c["tools"]:
             if t["name"] == tool_name:
                 return c
+    return None
+
+
+def all_connectors():
+    """Built-in connectors plus any enabled MCP servers.
+
+    MCP servers are resolved at call time rather than baked in, because a server
+    can be added, have tools enabled, or be switched off between one bot run and
+    the next -- and the bot must see the current answer, not the one that was
+    true when the process started.
+    """
+    from baton.bots import mcp
+
+    try:
+        borrowed = mcp.connectors()
+    except Exception:
+        # A broken MCP registry must not take the built-in tools down with it.
+        frappe.log_error(title="Baton: could not list MCP connectors")
+        borrowed = []
+    return CONNECTORS + borrowed
+
+
+def connector_by_id(connector_id):
+    for c in all_connectors():
+        if c["id"] == connector_id:
+            return c
     return None

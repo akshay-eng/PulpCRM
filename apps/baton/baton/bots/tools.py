@@ -705,6 +705,45 @@ def _search(ctx, args):
     return {"query": term, "results": hits, "count": len(hits)}
 
 
+def _call_mcp(ctx, tool_name, slug, remote_tool, args):
+    """Run a tool borrowed from an MCP server.
+
+    Gated exactly like a built-in one: the server's connector must be attached
+    to this bot, and the tool must be switched on for that server. Discovery
+    alone grants nothing.
+    """
+    from baton.bots import mcp as mcp_client
+
+    server = mcp_client.server_by_slug(slug)
+    if not server:
+        raise ToolError(f"There is no enabled MCP server behind {tool_name}.")
+
+    connector_id = f"{mcp_client.TOOL_PREFIX}_{slug}"
+    attached = {row.connector for row in ctx["bot"].get("connectors") or [] if row.enabled}
+    if connector_id not in attached:
+        raise ToolError(
+            f"{tool_name} comes from the {server} connector, "
+            "which is not attached to this bot."
+        )
+
+    try:
+        result = mcp_client.call(server, remote_tool, args)
+    except Exception as e:
+        # Handed back as an observation: a bot correcting itself beats a dead run.
+        raise ToolError(f"{server}/{remote_tool} failed: {str(e)[:300]}")
+
+    log_action("bot.mcp_tool", actor_type="MCP",
+               reference_doctype=(ctx.get("doc") or frappe._dict()).get("doctype"),
+               reference_name=(ctx.get("doc") or frappe._dict()).get("name"),
+               workflow_run=ctx["run"].name, bot=ctx["bot"].name,
+               output={"server": server, "tool": remote_tool,
+                       "chars": len(result.get("output") or "")})
+
+    if result.get("is_error"):
+        raise ToolError(f"{remote_tool} reported an error: {result.get('output', '')[:300]}")
+    return {"server": server, "tool": remote_tool, "output": result.get("output")}
+
+
 def execute(tool_name, args, ctx):
     """Run one tool. Returns a result dict, or a Park to suspend the run.
 
@@ -712,6 +751,14 @@ def execute(tool_name, args, ctx):
     back to the model as an observation, because a bot correcting itself is
     better than a run that dies on a typo.
     """
+    # A borrowed tool is namespaced mcp_<server>__<tool> so two servers offering
+    # `search` cannot collide, and so a tool name alone says where it came from.
+    from baton.bots import mcp as mcp_client
+
+    slug, remote_tool = mcp_client.parse_tool_name(tool_name)
+    if slug:
+        return _call_mcp(ctx, tool_name, slug, remote_tool, args if isinstance(args, dict) else {})
+
     connector = connector_of(tool_name)
     if not connector:
         raise ToolError(f"There is no tool called {tool_name}.")
