@@ -1,0 +1,172 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-08-22 03:10:43.624627",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "enabled",
+  "user",
+  "col_av",
+  "timezone",
+  "google_calendar",
+  "sec_hours",
+  "working_hours",
+  "holiday_list",
+  "sec_slots",
+  "slot_minutes",
+  "buffer_before_minutes",
+  "buffer_after_minutes",
+  "col_slots",
+  "min_notice_minutes",
+  "max_days_ahead",
+  "max_bookings_per_day"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "description": "Blank makes this the fallback for everyone.",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "For user",
+   "options": "User"
+  },
+  {
+   "fieldname": "col_av",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Working hours are read in this zone, and times quoted to customers are labelled with it.",
+   "fieldname": "timezone",
+   "fieldtype": "Data",
+   "label": "Timezone"
+  },
+  {
+   "description": "Optional. Enables two-way sync and a Meet link.",
+   "fieldname": "google_calendar",
+   "fieldtype": "Link",
+   "label": "Google Calendar",
+   "options": "Google Calendar"
+  },
+  {
+   "fieldname": "sec_hours",
+   "fieldtype": "Section Break",
+   "label": "Working hours"
+  },
+  {
+   "fieldname": "working_hours",
+   "fieldtype": "Table",
+   "label": "Working hours",
+   "options": "CRM Service Day"
+  },
+  {
+   "fieldname": "holiday_list",
+   "fieldtype": "Link",
+   "label": "Holiday list",
+   "options": "CRM Holiday List"
+  },
+  {
+   "fieldname": "sec_slots",
+   "fieldtype": "Section Break",
+   "label": "Slots"
+  },
+  {
+   "default": "30",
+   "fieldname": "slot_minutes",
+   "fieldtype": "Int",
+   "label": "Slot every (minutes)"
+  },
+  {
+   "default": "0",
+   "fieldname": "buffer_before_minutes",
+   "fieldtype": "Int",
+   "label": "Buffer before"
+  },
+  {
+   "default": "10",
+   "fieldname": "buffer_after_minutes",
+   "fieldtype": "Int",
+   "label": "Buffer after"
+  },
+  {
+   "fieldname": "col_slots",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "120",
+   "description": "Never offer a slot sooner than this.",
+   "fieldname": "min_notice_minutes",
+   "fieldtype": "Int",
+   "label": "Minimum notice"
+  },
+  {
+   "default": "14",
+   "fieldname": "max_days_ahead",
+   "fieldtype": "Int",
+   "label": "Look ahead (days)"
+  },
+  {
+   "default": "0",
+   "description": "0 means no limit.",
+   "fieldname": "max_bookings_per_day",
+   "fieldtype": "Int",
+   "label": "Max bookings per day"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-22 03:10:43.624627",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Availability",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}

@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-22 02:51:42.999095",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "key",
+  "label",
+  "required",
+  "col_oc",
+  "target_doctype",
+  "target_field"
+ ],
+ "fields": [
+  {
+   "description": "What the model may report, e.g. budget",
+   "fieldname": "key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Fact",
+   "reqd": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "default": "0",
+   "description": "The agent cannot finish until this has been answered.",
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Required"
+  },
+  {
+   "fieldname": "col_oc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "target_doctype",
+   "fieldtype": "Link",
+   "label": "Write to record",
+   "options": "DocType"
+  },
+  {
+   "description": "Blank keeps the fact on the run only.",
+   "fieldname": "target_field",
+   "fieldtype": "Data",
+   "label": "Write to field"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-22 02:51:42.999095",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Agent Outcome",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

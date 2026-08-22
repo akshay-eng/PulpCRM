@@ -1,0 +1,191 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:agent_name",
+ "creation": "2026-08-22 02:51:43.086148",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "agent_name",
+  "enabled",
+  "col_a",
+  "purpose",
+  "channel",
+  "sec_brief",
+  "goal",
+  "persona",
+  "business_context",
+  "guardrails",
+  "sec_opts",
+  "options",
+  "sec_out",
+  "outcomes",
+  "sec_lim",
+  "max_turns",
+  "max_reprompts",
+  "col_l",
+  "reply_timeout_hours",
+  "transcript_limit"
+ ],
+ "fields": [
+  {
+   "fieldname": "agent_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "col_a",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Conversation",
+   "description": "Which Baton AI Model to use. Falls back to the default model.",
+   "fieldname": "purpose",
+   "fieldtype": "Data",
+   "label": "Model purpose"
+  },
+  {
+   "default": "WhatsApp",
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "Channel",
+   "options": "WhatsApp\nEmail\nAny"
+  },
+  {
+   "fieldname": "sec_brief",
+   "fieldtype": "Section Break",
+   "label": "Brief"
+  },
+  {
+   "description": "One sentence. What is this conversation for?",
+   "fieldname": "goal",
+   "fieldtype": "Small Text",
+   "label": "Goal",
+   "reqd": 1
+  },
+  {
+   "description": "How it should sound. The agent signature is appended automatically.",
+   "fieldname": "persona",
+   "fieldtype": "Small Text",
+   "label": "Tone"
+  },
+  {
+   "description": "The only thing the agent may assume about what you sell.",
+   "fieldname": "business_context",
+   "fieldtype": "Text",
+   "label": "Business context"
+  },
+  {
+   "default": "Never quote prices or discounts.\nNever promise a delivery date.\nNever claim to be a human.\nIf you are unsure, hand over to a colleague.",
+   "fieldname": "guardrails",
+   "fieldtype": "Text",
+   "label": "Guardrails"
+  },
+  {
+   "fieldname": "sec_opts",
+   "fieldtype": "Section Break",
+   "label": "What it is choosing between"
+  },
+  {
+   "fieldname": "options",
+   "fieldtype": "Table",
+   "label": "Options",
+   "options": "Baton Agent Option"
+  },
+  {
+   "fieldname": "sec_out",
+   "fieldtype": "Section Break",
+   "label": "What it should find out"
+  },
+  {
+   "fieldname": "outcomes",
+   "fieldtype": "Table",
+   "label": "Outcomes",
+   "options": "Baton Agent Outcome"
+  },
+  {
+   "fieldname": "sec_lim",
+   "fieldtype": "Section Break",
+   "label": "Limits"
+  },
+  {
+   "default": "6",
+   "description": "An agent that talks to a customer twelve times unsupervised is a support ticket.",
+   "fieldname": "max_turns",
+   "fieldtype": "Int",
+   "label": "Max turns"
+  },
+  {
+   "default": "1",
+   "fieldname": "max_reprompts",
+   "fieldtype": "Int",
+   "label": "Max re-prompts"
+  },
+  {
+   "fieldname": "col_l",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "24",
+   "fieldname": "reply_timeout_hours",
+   "fieldtype": "Int",
+   "label": "Give up after (hours)"
+  },
+  {
+   "default": "30",
+   "fieldname": "transcript_limit",
+   "fieldtype": "Int",
+   "label": "Transcript messages"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-22 02:51:43.086148",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Agent",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "agent_name"
+}

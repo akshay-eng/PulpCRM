@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-22 03:10:44.101412",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "hold_key",
+  "status",
+  "user",
+  "col_h",
+  "slot_start",
+  "slot_end",
+  "expires_at",
+  "sec_ref",
+  "reference_doctype",
+  "reference_name",
+  "col_r",
+  "service",
+  "workflow_run",
+  "event"
+ ],
+ "fields": [
+  {
+   "fieldname": "hold_key",
+   "fieldtype": "Data",
+   "label": "Hold key",
+   "no_copy": 1,
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "default": "Held",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Held\nConfirmed\nReleased"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "With",
+   "options": "User"
+  },
+  {
+   "fieldname": "col_h",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "slot_start",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "From"
+  },
+  {
+   "fieldname": "slot_end",
+   "fieldtype": "Datetime",
+   "label": "To"
+  },
+  {
+   "fieldname": "expires_at",
+   "fieldtype": "Datetime",
+   "label": "Hold expires"
+  },
+  {
+   "fieldname": "sec_ref",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "col_r",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service",
+   "fieldtype": "Link",
+   "label": "Service",
+   "options": "Baton Service"
+  },
+  {
+   "fieldname": "workflow_run",
+   "fieldtype": "Link",
+   "label": "Workflow run",
+   "options": "Baton Workflow Run"
+  },
+  {
+   "fieldname": "event",
+   "fieldtype": "Link",
+   "label": "Event",
+   "options": "Event"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-22 03:10:44.101412",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Booking Hold",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
