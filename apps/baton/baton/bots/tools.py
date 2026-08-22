@@ -511,6 +511,200 @@ class _ShimNode:
 
 # ----------------------------------------------------------------- dispatch
 
+# ------------------------------------------------------- CRM operation tools
+#
+# The tools above are generic CRUD. These are the things a salesperson actually
+# *does* in the portal -- convert a lead, hand it to someone, log a call, move a
+# stage. Without them a bot can describe work but not perform it, and a user
+# watching it would reasonably ask what the point was.
+
+def _valid_options(doctype, fieldname):
+    """The values a Select/Link field will actually accept."""
+    meta = frappe.get_meta(doctype)
+    field = meta.get_field(fieldname)
+    if not field:
+        return []
+    if field.fieldtype == "Select":
+        return [o for o in (field.options or "").split("\n") if o]
+    if field.fieldtype == "Link" and field.options:
+        return frappe.get_all(field.options, pluck="name", limit_page_length=60)
+    return []
+
+
+def _list_options(ctx, args):
+    """What may go in a field. Stops a bot inventing a status that does not exist."""
+    doctype = cstr(args.get("doctype") or "").strip()
+    fieldname = cstr(args.get("field") or "").strip()
+    _check_doctype(ctx, doctype)
+    if not fieldname:
+        raise ToolError("Which field? Pass `field`.")
+    values = _valid_options(doctype, fieldname)
+    if not values:
+        raise ToolError(f"{fieldname} on {doctype} has no fixed set of values.")
+    return {"doctype": doctype, "field": fieldname, "options": values}
+
+
+def _convert_lead(ctx, args):
+    """Lead -> Deal, through the CRM's own conversion.
+
+    Delegates to crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal rather than
+    creating a Deal directly: that function also creates the Contact and
+    Organization and maps custom fields by label, none of which a bot should be
+    reimplementing.
+    """
+    from crm.fcrm.doctype.crm_lead.crm_lead import convert_to_deal
+
+    lead = cstr(args.get("lead") or "").strip()
+    if not lead:
+        doc = _subject(ctx)
+        if doc.doctype != "CRM Lead":
+            raise ToolError("Pass `lead`, or run this on a lead.")
+        lead = doc.name
+
+    _check_doctype(ctx, "CRM Lead")
+    _check_doctype(ctx, "CRM Deal")
+
+    if not frappe.db.exists("CRM Lead", lead):
+        raise ToolError(f"No lead called {lead}.")
+    if frappe.db.get_value("CRM Lead", lead, "converted"):
+        raise ToolError(f"{lead} has already been converted.")
+
+    deal = convert_to_deal(lead=lead)
+    log_action("bot.convert_lead", actor_type="AI_AGENT",
+               reference_doctype="CRM Lead", reference_name=lead,
+               workflow_run=ctx["run"].name, bot=ctx["bot"].name,
+               decision="CONVERTED", output={"deal": deal})
+    return {"lead": lead, "deal": deal}
+
+
+def _assign_to(ctx, args):
+    """Hand a record to a person, using Frappe's own assignment."""
+    from frappe.desk.form.assign_to import add as assign_add
+
+    doc = _subject(ctx)
+    user = cstr(args.get("user") or "").strip()
+    if not user:
+        raise ToolError("Who to? Pass `user` (an email address).")
+    if not frappe.db.exists("User", user):
+        raise ToolError(f"{user} is not a user on this site.")
+
+    _check_doctype(ctx, doc.doctype)
+    assign_add({
+        "assign_to": [user],
+        "doctype": doc.doctype,
+        "name": doc.name,
+        "description": cstr(args.get("reason") or "Assigned by a bot")[:400],
+    })
+    log_action("bot.assign", actor_type="AI_AGENT", reference_doctype=doc.doctype,
+               reference_name=doc.name, workflow_run=ctx["run"].name,
+               bot=ctx["bot"].name, output={"user": user})
+    return {"assigned_to": user, "record": f"{doc.doctype}/{doc.name}"}
+
+
+def _list_users(ctx, args):
+    """Who a record can be assigned to. Without this a bot guesses addresses."""
+    users = frappe.get_all(
+        "User",
+        filters={"enabled": 1, "user_type": "System User",
+                 "name": ["not in", ["Administrator", "Guest"]]},
+        fields=["name", "full_name"], limit_page_length=50,
+    )
+    return {"users": users, "count": len(users)}
+
+
+def _add_comment(ctx, args):
+    doc = _subject(ctx)
+    text = cstr(args.get("comment") or "").strip()
+    if not text:
+        raise ToolError("A comment needs some text.")
+    c = frappe.get_doc({
+        "doctype": "Comment", "comment_type": "Comment",
+        "reference_doctype": doc.doctype, "reference_name": doc.name,
+        "content": text[:4000],
+    }).insert(ignore_permissions=True)
+    return {"comment": c.name}
+
+
+def _log_call(ctx, args):
+    """Record a call that happened outside the CRM."""
+    doc = _subject(ctx)
+    duration = cint(args.get("duration_seconds") or 0)
+    status = args.get("status") if args.get("status") in (
+        "Completed", "No Answer", "Busy", "Failed") else "Completed"
+    call = frappe.get_doc({
+        "doctype": "CRM Call Log",
+        "id": frappe.generate_hash(length=16),
+        "telephony_medium": "Manual",
+        "type": args.get("type") if args.get("type") in ("Incoming", "Outgoing") else "Outgoing",
+        "status": status,
+        "duration": duration,
+        # `from` is mandatory on CRM Call Log. Fall back to the caller's own
+        # telephony number so logging a call never fails on a blank field.
+        "from": cstr(args.get("from_number") or "")
+        or frappe.db.get_value("CRM Telephony Agent", {"user": frappe.session.user}, "mobile_no")
+        or "unknown",
+        "to": cstr(args.get("to_number") or doc.get("mobile_no") or ""),
+        "reference_doctype": doc.doctype,
+        "reference_docname": doc.name,
+    }).insert(ignore_permissions=True)
+    return {"call_log": call.name, "status": status, "duration": duration}
+
+
+def _find_tasks(ctx, args):
+    _check_doctype(ctx, "CRM Task")
+    filters = {}
+    doc = ctx.get("doc")
+    if args.get("mine") and frappe.session.user:
+        filters["assigned_to"] = frappe.session.user
+    if args.get("status"):
+        filters["status"] = args["status"]
+    if args.get("for_this_record") and doc:
+        filters["reference_docname"] = doc.name
+    rows = frappe.get_all("CRM Task", filters=filters,
+                          fields=["name", "title", "status", "priority", "due_date", "assigned_to"],
+                          order_by="modified desc",
+                          limit_page_length=min(cint(args.get("limit") or 20), 50))
+    return {"tasks": rows, "count": len(rows)}
+
+
+def _complete_task(ctx, args):
+    _check_doctype(ctx, "CRM Task")
+    name = cstr(args.get("task") or "").strip()
+    if not name or not frappe.db.exists("CRM Task", name):
+        raise ToolError(f"No task called {name or '(none given)'}.")
+    frappe.db.set_value("CRM Task", name, "status", "Done")
+    frappe.db.commit()
+    return {"task": name, "status": "Done"}
+
+
+def _search(ctx, args):
+    """One search across everything this bot is allowed to see."""
+    term = cstr(args.get("query") or "").strip()
+    if not term:
+        raise ToolError("What should I search for? Pass `query`.")
+
+    hits, allowed = [], _allowed_doctypes(ctx)
+    fields_by_doctype = {
+        "CRM Lead": ["lead_name", "email", "mobile_no", "organization"],
+        "CRM Deal": ["organization", "email", "mobile_no"],
+        "Contact": ["first_name", "last_name", "email_id", "mobile_no"],
+        "CRM Organization": ["organization_name", "website"],
+    }
+    for doctype, fields in fields_by_doctype.items():
+        if doctype not in allowed:
+            continue
+        ors = [[doctype, f, "like", f"%{term}%"] for f in fields
+               if frappe.get_meta(doctype).get_field(f)]
+        if not ors:
+            continue
+        rows = frappe.get_all(doctype, or_filters=ors,
+                              fields=["name"] + fields[:2],
+                              limit_page_length=5)
+        for r in rows:
+            hits.append({"doctype": doctype, **r})
+    return {"query": term, "results": hits, "count": len(hits)}
+
+
 def execute(tool_name, args, ctx):
     """Run one tool. Returns a result dict, or a Park to suspend the run.
 
@@ -552,6 +746,16 @@ def execute(tool_name, args, ctx):
         "read_page": _read_page,
         "call_url": _call_url,
         "wait_for_reply": _wait_for_reply,
+        # CRM operations a salesperson performs, as opposed to raw CRUD.
+        "convert_lead": _convert_lead,
+        "assign_to": _assign_to,
+        "list_users": _list_users,
+        "add_comment": _add_comment,
+        "log_call": _log_call,
+        "find_tasks": _find_tasks,
+        "complete_task": _complete_task,
+        "list_options": _list_options,
+        "search": _search,
     }
     handler = handlers.get(tool_name)
     if not handler:

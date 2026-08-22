@@ -82,8 +82,22 @@ class TestProviderDispatch(FrappeTestCase):
         self.assertTrue(cfg.enabled)
 
     def test_unknown_purpose_falls_back_to_default(self):
-        fallback = llm.get_model_config("Summarisation")
-        self.assertEqual(fallback.name, llm.get_model_config().name)
+        """Uses a purpose no model claims.
+
+        This used to ask for "Summarisation", which was only unclaimed because
+        nobody had configured a model for it yet. The moment one existed the
+        test failed while the fallback it checks still worked -- the assertion
+        was fine, the premise had an expiry date on it.
+        """
+        claimed = set(frappe.get_all("Baton AI Model", filters={"enabled": 1},
+                                     pluck="purpose"))
+        unclaimed = next((p for p in ("General", "Qualification", "Conversation",
+                                      "Summarisation", "Workflow")
+                          if p not in claimed), None)
+        if unclaimed is None:
+            self.skipTest("every purpose has a model, so there is no fallback to check")
+        self.assertEqual(llm.get_model_config(unclaimed).name,
+                         llm.get_model_config().name)
 
     def test_global_switch_blocks_calls(self):
         original = frappe.db.get_single_value("Baton Settings", "ai_enabled")

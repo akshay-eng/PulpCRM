@@ -72,7 +72,17 @@ CONNECTORS = [
         "id": "crm_leads", "label": "Leads", "group": "CRM records", "icon": "user-plus",
         "description": "Look up, create and update leads.",
         "doctypes": ["CRM Lead"],
-        "tools": _record_tools("leads", "CRM Lead", "Leads"),
+        "tools": _record_tools("leads", "CRM Lead", "Leads") + [
+            {
+                "name": "convert_lead",
+                "label": "Convert a lead",
+                "description": "Turn a qualified lead into a deal, creating the contact and organisation the way the CRM does.",
+                "params": [
+                    {"name": "lead", "type": "string", "required": False,
+                     "description": "The lead id. Leave out to use the record in hand."},
+                ],
+            },
+        ],
     },
     {
         "id": "crm_deals", "label": "Deals", "group": "CRM records", "icon": "handshake",
@@ -98,6 +108,30 @@ CONNECTORS = [
         "description": "Raise tasks and hand work to a person.",
         "doctypes": ["CRM Task"],
         "tools": [
+            {
+                "name": "find_tasks",
+                "label": "Find tasks",
+                "description": "List tasks: optionally only mine, only open, or only those on the record in hand.",
+                "params": [
+                    {"name": "mine", "type": "bool", "required": False,
+                     "description": "True to show only the current user's tasks."},
+                    {"name": "status", "type": "string", "required": False,
+                     "description": "Backlog, Todo, In Progress, Done or Cancelled."},
+                    {"name": "for_this_record", "type": "bool", "required": False,
+                     "description": "True to scope to the record in hand."},
+                    {"name": "limit", "type": "int", "required": False,
+                     "description": "How many at most. Default 20."},
+                ],
+            },
+            {
+                "name": "complete_task",
+                "label": "Complete a task",
+                "description": "Mark a task as done.",
+                "params": [
+                    {"name": "task", "type": "string", "required": True,
+                     "description": "The task id."},
+                ],
+            },
             {"name": "create_task", "label": "Create a task",
              "description": "Raise a task against the record in hand.",
              "params": [
@@ -132,6 +166,76 @@ CONNECTORS = [
     },
 
     # ---------------------------------------------------------- conversation
+    {
+        "id": "crm_operations",
+        "label": "CRM operations",
+        "summary": "The things a salesperson does to a record: hand it to "
+                   "someone, comment on it, log a call, look something up.",
+        "doctypes": ["CRM Lead", "CRM Deal", "CRM Task", "CRM Call Log"],
+        "tools": [
+            {
+                "name": "assign_to",
+                "label": "Assign to someone",
+                "description": "Hand the record in hand to a user, the same way the assignment button does.",
+                "params": [
+                    {"name": "user", "type": "string", "required": True,
+                     "description": "Their email address. Use list_users first."},
+                    {"name": "reason", "type": "string", "required": False,
+                     "description": "Why, shown on the assignment."},
+                ],
+            },
+            {
+                "name": "list_users",
+                "label": "List users",
+                "description": "Who a record can be assigned to. Use this before assign_to rather than guessing an address.",
+                "params": [],
+            },
+            {
+                "name": "add_comment",
+                "label": "Comment on a record",
+                "description": "Leave a comment on the record in hand, visible in its timeline.",
+                "params": [
+                    {"name": "comment", "type": "string", "required": True,
+                     "description": "The comment text."},
+                ],
+            },
+            {
+                "name": "log_call",
+                "label": "Log a call",
+                "description": "Record a call that happened outside the CRM.",
+                "params": [
+                    {"name": "type", "type": "string", "required": False,
+                     "description": "Incoming or Outgoing."},
+                    {"name": "status", "type": "string", "required": False,
+                     "description": "Completed, No Answer, Busy or Failed."},
+                    {"name": "duration_seconds", "type": "int", "required": False,
+                     "description": "How long the call lasted."},
+                    {"name": "to_number", "type": "string", "required": False,
+                     "description": "Who was called."},
+                ],
+            },
+            {
+                "name": "list_options",
+                "label": "List a field's values",
+                "description": "The values a field will accept. Use this before writing a status or stage rather than inventing one.",
+                "params": [
+                    {"name": "doctype", "type": "string", "required": True,
+                     "description": "For example CRM Deal."},
+                    {"name": "field", "type": "string", "required": True,
+                     "description": "For example status."},
+                ],
+            },
+            {
+                "name": "search",
+                "label": "Search everything",
+                "description": "Search across every record type this bot is allowed to see.",
+                "params": [
+                    {"name": "query", "type": "string", "required": True,
+                     "description": "A name, email, phone number or organisation."},
+                ],
+            },
+        ],
+    },
     {
         "id": "whatsapp", "label": "WhatsApp", "group": "Talking", "icon": "message-circle",
         "description": "Send a WhatsApp message and wait for the answer.",
