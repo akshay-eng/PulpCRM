@@ -33,8 +33,23 @@ def on_message(doc, method=None):
         # The lead replied: reset the AI turn counter and withdraw queued
         # follow-ups, so we never send "just following up" after a reply.
         mark_inbound(ref_dt, ref_dn)
+
+        # Wake whatever was parked waiting to hear from them, before anything
+        # else touches the Waiting runs on this record.
+        from baton.conversation.parking import resume_on_inbound
+        woke = resume_on_inbound(ref_dt, ref_dn, "WhatsApp", doc.name)
+
+        # Nothing was waiting for them, so nobody is mid-conversation. That is
+        # the moment an inbound-triggered bot is for -- and only then, or it
+        # would start a second bot on top of a conversation already running.
+        if not woke:
+            from baton.bots.runtime import start_inbound_bots
+            start_inbound_bots(ref_dt, ref_dn, "WhatsApp", doc.name)
+
+        # Withdraw queued follow-ups -- but not a conversation step that is
+        # waiting for this exact message.
         from baton.conversation.state import cancel_pending_ai_actions
-        cancel_pending_ai_actions(ref_dt, ref_dn)
+        cancel_pending_ai_actions(ref_dt, ref_dn, include_reply_waits=False)
         from baton.events import emit
         emit("lead.replied", reference_doctype=ref_dt, reference_name=ref_dn)
         emit("message.received", reference_doctype=ref_dt, reference_name=ref_dn)

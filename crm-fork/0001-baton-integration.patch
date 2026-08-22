@@ -13,57 +13,125 @@ index 62719b9..d7ca5e6 100644
      "dompurify": "^3.3.3",
      "frappe-ui": "1.0.0-beta.29",
 diff --git a/frontend/src/components/Layouts/AppSidebar.vue b/frontend/src/components/Layouts/AppSidebar.vue
-index 9b36dc2..52aa5be 100644
+index 9b36dc2..bc11052 100644
 --- a/frontend/src/components/Layouts/AppSidebar.vue
 +++ b/frontend/src/components/Layouts/AppSidebar.vue
-@@ -174,6 +174,8 @@
+@@ -174,6 +174,7 @@
  <script setup>
  import BrushCleaningIcon from '~icons/lucide/brush-cleaning'
  import LucideLayoutDashboard from '~icons/lucide/layout-dashboard'
-+import LucideWorkflow from '~icons/lucide/workflow'
-+import LucidePlug from '~icons/lucide/plug'
++import LucideSparkles from '~icons/lucide/sparkles'
  import CRMLogo from '@/components/Icons/CRMLogo.vue'
  import InviteIcon from '@/components/Icons/InviteIcon.vue'
  import ConvertIcon from '@/components/Icons/ConvertIcon.vue'
-@@ -292,6 +294,16 @@ const links = [
+@@ -292,6 +293,11 @@ const links = [
      icon: PhoneIcon,
      to: 'Call Logs',
    },
 +  {
-+    label: 'Workflows',
-+    icon: LucideWorkflow,
-+    to: 'Workflows',
-+  },
-+  {
-+    label: 'Connections',
-+    icon: LucidePlug,
-+    to: 'Connections',
++    label: 'AI Automation',
++    icon: LucideSparkles,
++    to: 'Automation',
 +  },
  ]
  
  const allViews = computed(() => {
+diff --git a/frontend/src/components/Settings/Settings.vue b/frontend/src/components/Settings/Settings.vue
+index a9b87b4..fecc3d7 100644
+--- a/frontend/src/components/Settings/Settings.vue
++++ b/frontend/src/components/Settings/Settings.vue
+@@ -75,6 +75,14 @@ import DashboardSettings from '@/components/Settings/DashboardSettings.vue'
+ import EmailTemplatePage from '@/components/Settings/EmailTemplate/EmailTemplatePage.vue'
+ import TelephonyPage from '@/components/Settings/Telephony/TelephonyPage.vue'
+ import EmailConfig from '@/components/Settings/EmailConfig.vue'
++import BatonAgents from '@/components/Settings/Baton/BatonAgents.vue'
++import BatonScheduling from '@/components/Settings/Baton/BatonScheduling.vue'
++import BatonConnections from '@/components/Settings/Baton/BatonConnections.vue'
++import BatonGoogle from '@/components/Settings/Baton/BatonGoogle.vue'
++import LucideChrome from '~icons/lucide/chrome'
++import LucideBot from '~icons/lucide/bot'
++import LucideKeyRound from '~icons/lucide/key-round'
++import LucideCalendarClock from '~icons/lucide/calendar-clock'
+ import Icon from '@/components/Icon.vue'
+ import { usersStore } from '@/stores/users'
+ import {
+@@ -197,6 +205,44 @@ const tabs = computed(() => {
+       ],
+       condition: () => isManager(),
+     },
++    {
++      label: __('AI'),
++      items: [
++        {
++          label: __('Models & channels'),
++          icon: markRaw(h(LucideKeyRound)),
++          component: markRaw(BatonConnections),
++        },
++        {
++          label: __('Agents'),
++          icon: markRaw(h(LucideBot)),
++          component: markRaw(BatonAgents),
++        },
++      ],
++      condition: () => isManager(),
++    },
++    {
++      label: __('Google'),
++      items: [
++        {
++          label: __('Sign-in & Gmail'),
++          icon: markRaw(h(LucideChrome)),
++          component: markRaw(BatonGoogle),
++        },
++      ],
++      condition: () => isManager(),
++    },
++    {
++      label: __('Scheduling'),
++      items: [
++        {
++          label: __('Working hours'),
++          icon: markRaw(h(LucideCalendarClock)),
++          component: markRaw(BatonScheduling),
++        },
++      ],
++      condition: () => isManager(),
++    },
+     {
+       label: __('Customization'),
+       items: [
 diff --git a/frontend/src/router.js b/frontend/src/router.js
-index 1aec80c..6a13085 100644
+index 1aec80c..3fd786b 100644
 --- a/frontend/src/router.js
 +++ b/frontend/src/router.js
-@@ -102,6 +102,21 @@ const routes = [
+@@ -102,6 +102,31 @@ const routes = [
      name: 'Call Logs',
      component: () => import('@/pages/CallLogs.vue'),
    },
 +  {
-+    path: '/connections',
-+    name: 'Connections',
-+    component: () => import('@/pages/Connections.vue'),
++    path: '/automation',
++    name: 'Automation',
++    component: () => import('@/pages/Automation.vue'),
 +  },
 +  {
-+    path: '/workflows',
++    path: '/automation/workflows',
 +    name: 'Workflows',
 +    component: () => import('@/pages/Workflows.vue'),
 +  },
 +  {
-+    path: '/workflows/:workflowId',
++    path: '/automation/workflows/:workflowId',
 +    name: 'Workflow',
 +    component: () => import('@/pages/Workflow.vue'),
++  },
++  {
++    path: '/automation/bots',
++    name: 'Bots',
++    component: () => import('@/pages/Bots.vue'),
++  },
++  {
++    path: '/automation/bots/:botId',
++    name: 'Bot',
++    component: () => import('@/pages/Bot.vue'),
 +  },
    {
      path: '/data-import',
