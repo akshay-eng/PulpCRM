@@ -95,3 +95,70 @@ class TestProviderDispatch(FrappeTestCase):
         finally:
             frappe.db.set_single_value("Baton Settings", "ai_enabled", original)
             frappe.clear_cache(doctype="Baton Settings")
+
+
+class TestCredentialTester(FrappeTestCase):
+    """Testing a key must not require the kill switch to be off... or on.
+
+    The switch exists to stop Baton acting on customers. Refusing to verify a
+    credential until it is on means the only way to find out whether a key works
+    is to switch the whole product on and watch -- which is exactly backwards,
+    and is what made a freshly configured site untestable.
+    """
+
+    def setUp(self):
+        self.saved = frappe.db.get_single_value("Baton Settings", "ai_enabled")
+        frappe.db.set_single_value("Baton Settings", "ai_enabled", 0)
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+
+    def tearDown(self):
+        frappe.db.set_single_value("Baton Settings", "ai_enabled", self.saved)
+        frappe.db.commit()
+        frappe.clear_document_cache("Baton Settings", "Baton Settings")
+
+    def test_chat_still_refuses_while_the_switch_is_off(self):
+        from baton.llm import LLMNotConfigured, chat
+
+        with self.assertRaises(LLMNotConfigured) as e:
+            chat([{"role": "user", "content": "hi"}])
+        self.assertIn("switched off", str(e.exception))
+
+    def test_the_tester_reaches_the_provider_anyway(self):
+        from unittest.mock import MagicMock, patch
+
+        from baton.llm import ADAPTERS, test_model
+
+        model = _model("T Tester Model")
+        # ADAPTERS binds the function at import, so the dict entry is what a
+        # stub has to replace.
+        adapter = MagicMock(return_value="OK")
+        with patch.dict(ADAPTERS, {"OpenAI Compatible": adapter}):
+            out = test_model(model.name)
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(adapter.call_count, 1,
+                         "the tester must actually call the provider")
+
+    def test_the_tester_reports_a_bad_key_rather_than_raising(self):
+        from unittest.mock import MagicMock, patch
+
+        from baton.llm import ADAPTERS, LLMCallFailed, test_model
+
+        model = _model("T Tester Model")
+        adapter = MagicMock(side_effect=LLMCallFailed("401 Unauthorized"))
+        with patch.dict(ADAPTERS, {"OpenAI Compatible": adapter}):
+            out = test_model(model.name)
+        self.assertFalse(out["ok"])
+        self.assertIn("401", out["message"])
+
+
+def _model(name):
+    if frappe.db.exists("Baton AI Model", name):
+        frappe.delete_doc("Baton AI Model", name, force=True, ignore_permissions=True)
+    doc = frappe.get_doc({
+        "doctype": "Baton AI Model", "model_name": name, "enabled": 1,
+        "provider": "OpenAI Compatible", "model": "test-model",
+        "api_key": "sk-test", "purpose": "General",
+    }).insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc

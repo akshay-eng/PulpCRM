@@ -275,3 +275,89 @@ def set_send_mode(mode):
     frappe.db.commit()
     frappe.clear_cache(doctype="Baton Settings")
     return get_connections()
+
+
+# --------------------------------------------------------------- AI models
+#
+# Model credentials belong beside channel credentials: both are "how Baton
+# reaches the outside world", both are secrets, and both are things a builder
+# selects rather than defines. The builder links here; it never shows a key.
+
+MODEL_FIELDS = ("model_name", "enabled", "is_default", "purpose", "provider",
+                "model", "base_url", "api_version", "temperature", "max_tokens",
+                "timeout")
+
+
+@frappe.whitelist()
+def set_ai_enabled(enabled):
+    """The master switch, which had no UI at all.
+
+    Everything Baton does that calls a model or writes to a customer is behind
+    this. It shipped off and could only be turned on from Desk, which meant the
+    product's own settings page could not finish setting the product up.
+    """
+    _guard()
+    value = 1 if str(enabled) in ("1", "true", "True") else 0
+    frappe.db.set_single_value("Baton Settings", "ai_enabled", value)
+    frappe.db.commit()
+    # The send gate reads through get_cached_doc, so the flip has to invalidate
+    # the cached Single or nothing notices until the next restart.
+    frappe.clear_document_cache("Baton Settings", "Baton Settings")
+    return get_connections()
+
+
+@frappe.whitelist()
+def get_models():
+    _guard()
+    rows = frappe.get_all("Baton AI Model", fields=list(MODEL_FIELDS),
+                          order_by="is_default desc, model_name")
+    for r in rows:
+        r["has_api_key"] = bool(
+            frappe.utils.password.get_decrypted_password(
+                "Baton AI Model", r["model_name"], "api_key", raise_exception=False)
+        )
+    return rows
+
+
+@frappe.whitelist()
+def save_model(model_name=None, api_key=None, **values):
+    """Create or update one model credential. A blank key keeps the stored one."""
+    _guard()
+    if model_name and frappe.db.exists("Baton AI Model", model_name):
+        doc = frappe.get_doc("Baton AI Model", model_name)
+    else:
+        doc = frappe.new_doc("Baton AI Model")
+        doc.model_name = values.get("new_name") or model_name or "Model"
+
+    for field in MODEL_FIELDS:
+        if field in values and field != "model_name":
+            doc.set(field, values[field])
+    if api_key:
+        doc.api_key = api_key
+    doc.save(ignore_permissions=True)
+
+    # Exactly one default, or "which model did it use?" has no answer.
+    if doc.is_default:
+        frappe.db.sql("""UPDATE `tabBaton AI Model` SET is_default = 0
+                         WHERE name != %s""", (doc.name,))
+    frappe.db.commit()
+    return get_models()
+
+
+@frappe.whitelist()
+def delete_model(model_name):
+    _guard()
+    frappe.delete_doc("Baton AI Model", model_name, ignore_permissions=True)
+    frappe.db.commit()
+    return get_models()
+
+
+@frappe.whitelist()
+def test_model(model_name):
+    _guard()
+    from baton.llm import test_model as run_test
+
+    try:
+        return run_test(model_name)
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:300]}

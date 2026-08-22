@@ -217,12 +217,19 @@ def _api_key(cfg):
 # public API
 # --------------------------------------------------------------------------
 
-def chat(messages, purpose=None, want_json=False, temperature=None, max_tokens=None, config=None):
+def chat(messages, purpose=None, want_json=False, temperature=None, max_tokens=None,
+         config=None, allow_while_off=False):
     """Send a chat completion through the model configured for `purpose`.
 
     Returns the assistant text. Raises LLMNotConfigured / LLMCallFailed.
+
+    `allow_while_off` is for the credential tester and nothing else. The kill
+    switch exists to stop Baton acting on customers; it is not a reason to
+    refuse an admin checking whether a key works. Requiring AI to be on before
+    you can test a key means the only way to find out is to switch the whole
+    thing on and see -- which is precisely backwards.
     """
-    if not frappe.db.get_single_value("Baton Settings", "ai_enabled"):
+    if not allow_while_off and not frappe.db.get_single_value("Baton Settings", "ai_enabled"):
         raise LLMNotConfigured("AI is switched off in Baton Settings.")
 
     cfg = config or get_model_config(purpose)
@@ -326,6 +333,8 @@ def test_model(name):
             [{"role": "user", "content": "Reply with exactly: OK"}],
             config=cfg,
             max_tokens=16,
+            # Nothing reaches a customer: one throwaway prompt, reply discarded.
+            allow_while_off=True,
         )
         return {
             "ok": True,
