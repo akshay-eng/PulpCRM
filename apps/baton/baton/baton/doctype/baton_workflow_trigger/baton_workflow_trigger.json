@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-22 02:14:36.121128",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "trigger_type",
+  "trigger_doctype",
+  "trigger_event",
+  "field_changed",
+  "col_t",
+  "cron",
+  "event_name",
+  "webhook_path",
+  "webhook_secret",
+  "sec_tc",
+  "condition"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "Document Event",
+   "fieldname": "trigger_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "When",
+   "options": "Document Event\nScheduled\nEvent\nWebhook\nManual\nInbound Message",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Document Event'",
+   "fieldname": "trigger_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Record type",
+   "options": "DocType"
+  },
+  {
+   "default": "after_insert",
+   "depends_on": "eval:doc.trigger_type=='Document Event'",
+   "fieldname": "trigger_event",
+   "fieldtype": "Select",
+   "label": "Event",
+   "options": "after_insert\non_update\non_trash"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Document Event' && doc.trigger_event=='on_update'",
+   "description": "Blank fires on every save. Naming a field stops the on_update storm.",
+   "fieldname": "field_changed",
+   "fieldtype": "Data",
+   "label": "Only when this field changes"
+  },
+  {
+   "fieldname": "col_t",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Scheduled'",
+   "description": "Standard 5-field cron, e.g. 0 9 * * *",
+   "fieldname": "cron",
+   "fieldtype": "Data",
+   "label": "Cron"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Event'",
+   "description": "One of baton.events.EVENTS, e.g. lead.replied",
+   "fieldname": "event_name",
+   "fieldtype": "Data",
+   "label": "Event name"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Webhook'",
+   "fieldname": "webhook_path",
+   "fieldtype": "Data",
+   "label": "Webhook path",
+   "no_copy": 1,
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "depends_on": "eval:doc.trigger_type=='Webhook'",
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook secret"
+  },
+  {
+   "fieldname": "sec_tc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Optional Python expression over `doc`. Applied on top of the workflow-level condition.",
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Only if"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-22 12:38:49.608194",
+ "modified_by": "Administrator",
+ "module": "Baton",
+ "name": "Baton Workflow Trigger",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
