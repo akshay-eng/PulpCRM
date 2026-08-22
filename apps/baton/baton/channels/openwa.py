@@ -156,6 +156,39 @@ def send_text(to, text, quoted_message_id=None):
     return r.json()
 
 
+# WhatsApp media type -> the content_type the CRM's WhatsApp tab renders.
+MEDIA_CONTENT_TYPES = {
+    "image": "image", "video": "video", "audio": "audio",
+    "document": "document", "sticker": "image", "ptt": "audio",
+}
+
+
+def fetch_media(chat_id, message_id):
+    """Download a message's media bytes from OpenWA.
+
+    Webhook payloads shed media over a size cap and send
+    `{"omitted": true, "sizeBytes": N}` instead, so the bytes must be pulled
+    separately. Requires CHAT_MEDIA_ARCHIVE_ENABLED on the OpenWA side;
+    without it this returns None and the message is kept as text.
+    """
+    import urllib.parse
+
+    base, key, session = _cfg()
+    chat = urllib.parse.quote(str(chat_id), safe="")
+    msg = urllib.parse.quote(str(message_id), safe="")
+
+    r = requests.get(
+        f"{base}/api/sessions/{session}/messages/{chat}/{msg}/media",
+        headers={"X-API-Key": key}, timeout=60,
+    )
+    if r.status_code != 200:
+        return None
+    content_type = (r.headers.get("Content-Type") or "").split(";")[0].strip()
+    if content_type.startswith("application/json"):
+        return None  # an error body, not media
+    return {"content": r.content, "mimetype": content_type or "application/octet-stream"}
+
+
 def session_status():
     base, key, session = _cfg()
     r = requests.get(f"{base}/api/sessions/{session}", headers=_headers(key), timeout=TIMEOUT)
