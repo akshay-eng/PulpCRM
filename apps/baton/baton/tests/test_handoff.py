@@ -53,6 +53,13 @@ def _settings(**kw):
     # this test set into the durable transaction; FrappeTestCase then rolls back
     # the restore, leaving the site permanently reconfigured by the test run.
     frappe.db.commit()
+    # clear_cache(doctype=...) drops the *meta* cache, not the cached document.
+    # The send gate reads through get_cached_doc, so without this line a test
+    # sets ai_enabled=1, the gate keeps reading the site's stored 0, and the
+    # test passes or fails depending on how the site happens to be configured
+    # -- which is how it passed for weeks and then started failing when the
+    # site was switched off.
+    frappe.clear_document_cache("Baton Settings", "Baton Settings")
     frappe.clear_cache(doctype="Baton Settings")
     return s
 

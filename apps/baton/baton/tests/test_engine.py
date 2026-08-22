@@ -49,8 +49,44 @@ def _lead(**kw):
 
 
 
+# Leads the fixtures create. The engine commits mid-test, so FrappeTestCase's
+# rollback cannot remove them and they accumulate in the site on every run.
+TEST_LEAD_NAMES = ("Engine Test", "Engine Renamed", "Handoff Test", "Qual Test")
+
+
+def _delete_test_leads():
+    for lead_name in TEST_LEAD_NAMES:
+        for name in frappe.get_all("CRM Lead", filters={"lead_name": lead_name},
+                                   pluck="name"):
+            # Baton Approval matters as much as the lead itself: approvals are
+            # committed while the lead insert is rolled back, so Frappe's naming
+            # series rewinds and the next test's lead inherits the orphans. That
+            # is what made cancel_pending_ai_actions count three of them.
+            for child, field in (("WhatsApp Message", "reference_name"),
+                                 ("Baton Conversation State", "reference_name"),
+                                 ("Baton Qualification Result", "reference_name"),
+                                 ("Baton Approval", "reference_name"),
+                                 ("Baton Booking Hold", "reference_name")):
+                if not frappe.db.exists("DocType", child):
+                    continue
+                for row in frappe.get_all(child, filters={field: name}, pluck="name"):
+                    frappe.delete_doc(child, row, force=True, ignore_permissions=True)
+            frappe.delete_doc("CRM Lead", name, force=True, ignore_permissions=True)
+
+    # Anything left pointing at a lead that no longer exists.
+    if frappe.db.exists("DocType", "Baton Approval"):
+        for name, ref in frappe.get_all(
+                "Baton Approval", filters={"reference_doctype": "CRM Lead"},
+                fields=["name", "reference_name"], as_list=True):
+            if ref and not frappe.db.exists("CRM Lead", ref):
+                frappe.delete_doc("Baton Approval", name, force=True,
+                                  ignore_permissions=True)
+    frappe.db.commit()
+
+
 def _delete_test_workflows(*prefixes):
     """The engine commits, so rollback cannot remove what tests created."""
+    _delete_test_leads()
     for prefix in prefixes:
         for name in frappe.get_all("Baton Workflow",
                                    filters={"workflow_name": ["like", f"{prefix}%"]},

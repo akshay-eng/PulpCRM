@@ -17,12 +17,25 @@ required_apps = ["crm"]
 # ---------------------------------------------------------------------------
 doc_events = {
     "*": {
-        "after_insert": "baton.workflow.engine.handle_document_event",
-        "on_update": "baton.workflow.engine.handle_document_event",
-        "on_trash": "baton.workflow.engine.handle_document_event",
+        "after_insert": [
+            "baton.workflow.engine.handle_document_event",
+            "baton.bots.runtime.handle_document_event",
+        ],
+        "on_update": [
+            "baton.workflow.engine.handle_document_event",
+            "baton.bots.runtime.handle_document_event",
+        ],
+        "on_trash": [
+            "baton.workflow.engine.handle_document_event",
+            "baton.bots.runtime.handle_document_event",
+        ],
     },
     "WhatsApp Message": {
         "before_insert": "baton.api.whatsapp.tag_author",
+        # Runs after CRM's own validate hook (baton is installed last), which
+        # re-files messages by phone number. A message Baton addressed keeps the
+        # record it was addressed to.
+        "validate": "baton.overrides.whatsapp_message.keep_baton_reference",
         "after_insert": "baton.api.whatsapp.on_message",
     },
 }
@@ -37,8 +50,17 @@ scheduler_events = {
             "baton.workflow.scheduler.resume_due_runs",
             # Act on conversations whose human cooldown has elapsed (spec §28).
             "baton.conversation.state.review_expired_cooldowns",
+            # Recover runs whose worker died mid-node.
+            "baton.workflow.scheduler.sweep_stale_runs",
+            # Hand back slots a customer never confirmed.
+            "baton.scheduling.book.release_expired_holds",
         ],
-    }
+    },
+    "daily": [
+        # The action log is on the send path (already_done, the rate limit), so
+        # it cannot be allowed to grow without bound.
+        "baton.audit.purge_old_logs",
+    ],
 }
 
 

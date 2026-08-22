@@ -33,7 +33,8 @@
   "sec_dec",
   "decision",
   "confidence",
-  "reason"
+  "reason",
+  "bot"
  ],
  "fields": [
   {
@@ -189,12 +190,18 @@
    "fieldname": "reason",
    "fieldtype": "Small Text",
    "label": "Reason"
+  },
+  {
+   "fieldname": "bot",
+   "fieldtype": "Link",
+   "label": "Bot",
+   "options": "Baton Bot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-20 02:47:52.492715",
+ "modified": "2026-08-22 12:38:49.368432",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Action Log",

@@ -55,3 +55,36 @@ class BatonWhatsAppMessage(WhatsAppMessage):
                        reference_name=self.reference_name,
                        error=str(e)[:500], output={"to": self.to})
             raise
+
+
+def keep_baton_reference(doc, method=None):
+    """Stop CRM re-filing a message Baton addressed deliberately.
+
+    `crm.api.whatsapp.validate` resolves `reference_doctype`/`reference_name`
+    from the phone number on every save, and prefers a Deal when the number
+    matches both. That is right for an inbound message nobody has classified,
+    and wrong for one we just sent as part of a run:
+
+      * the run is parked on the Lead, and `resume_on_inbound` looks for a
+        Waiting run on the record the message is filed against -- so the reply
+        wakes nothing and the conversation stalls forever
+      * `can_ai_send`, the turn cap and the rate limit all key on the same pair,
+        so half the conversation is counted against one record and half against
+        another
+      * the audit trail stops answering "what did this run say, and to whom?"
+
+    So a message Baton addressed keeps its address. Anything else -- an inbound
+    message, one typed by a human -- is left to CRM to classify as it likes.
+
+    Registered after CRM's hook (baton is installed last), which is what lets it
+    put back what that hook overwrote.
+    """
+    wanted = doc.flags.get("baton_reference")
+    if not wanted:
+        return
+    doctype, name = wanted
+    if not doctype or not name:
+        return
+    if (doc.reference_doctype, doc.reference_name) != (doctype, name):
+        doc.reference_doctype = doctype
+        doc.reference_name = name

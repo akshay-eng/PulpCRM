@@ -43,12 +43,36 @@ def approved_templates():
     )
 
 
+def _openwa_active():
+    """Is WhatsApp currently going out through the self-hosted bridge?
+
+    Deferred to channels.openwa so there is exactly one definition of "OpenWA is
+    on". A looser test here would skip Meta's window check while the message
+    still went to Meta -- which is the precise failure this check exists to
+    prevent.
+    """
+    try:
+        from baton.channels import openwa
+
+        return openwa.is_enabled()
+    except Exception:
+        return False
+
+
 def choose_send_mode(reference_doctype, reference_name, template=None):
     """Decide how a WhatsApp message must be sent right now.
 
     Returns dict: {mode: 'free_form'|'template'|'blocked', template, reason,
     expires_at, costs_template}
     """
+    # The service window is Meta's rule, not WhatsApp's. OpenWA rides the real
+    # account, so there is no window and no templates -- applying Meta's limits
+    # there would block every first message for no reason at all.
+    if _openwa_active():
+        return {"mode": "free_form", "template": None,
+                "reason": "OpenWA is active; Meta's 24-hour window does not apply.",
+                "expires_at": None, "costs_template": False}
+
     allowed, expires, reason = window_state(reference_doctype, reference_name)
 
     if allowed:

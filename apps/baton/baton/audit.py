@@ -14,6 +14,7 @@ import json
 import time
 
 import frappe
+from frappe.utils import add_to_date, now_datetime
 
 
 def _j(value, limit=8000):
@@ -35,6 +36,7 @@ def log_action(
     workflow=None,
     workflow_run=None,
     node_id=None,
+    bot=None,
     ai_model=None,
     provider=None,
     external_id=None,
@@ -60,6 +62,7 @@ def log_action(
             "workflow": workflow,
             "workflow_run": workflow_run,
             "node_id": node_id,
+            "bot": bot,
             "ai_model": ai_model,
             "provider": provider,
             "external_id": external_id,
@@ -140,3 +143,44 @@ def timed(action, **log_kw):
         return inner
 
     return wrap
+
+
+# Retention. Per-node commits and per-turn agent logs mean a busy tenant writes
+# thousands of rows a day, and this table is queried on every send to answer
+# "have we already done this?" (already_done) and "how many did we send today?"
+# (the rate limit). Letting it grow without bound degrades the send path itself.
+SUCCESS_RETENTION_DAYS = 90
+FAILURE_RETENTION_DAYS = 365
+
+
+def purge_old_logs(limit=5000):
+    """Trim Baton Action Log.
+
+    Successes age out fast: after three months "we sent this" is history, and
+    the idempotency keys guarding against double-sends are long dead. Failures
+    and suppressions are kept four times longer because they are the rows
+    someone actually goes looking for when asking why a message did not go out.
+    """
+    if not frappe.db.table_exists("Baton Action Log"):
+        return
+
+    deleted = 0
+    for statuses, days in (
+        (["Success"], SUCCESS_RETENTION_DAYS),
+        (["Failed", "Skipped"], FAILURE_RETENTION_DAYS),
+    ):
+        cutoff = add_to_date(now_datetime(), days=-days)
+        names = frappe.get_all(
+            "Baton Action Log",
+            filters={"status": ["in", statuses], "creation": ["<", cutoff]},
+            pluck="name",
+            limit_page_length=limit,
+        )
+        for name in names:
+            frappe.delete_doc("Baton Action Log", name, force=True,
+                              ignore_permissions=True, delete_permanently=True)
+        deleted += len(names)
+
+    if deleted:
+        frappe.db.commit()
+    return deleted

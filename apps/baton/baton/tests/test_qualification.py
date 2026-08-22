@@ -163,3 +163,11 @@ class TestQualifyWithStubbedModel(FrappeTestCase):
         ok, reason = should_convert(lead.name)
         self.assertFalse(ok)
         self.assertIn("Nurture", reason)
+
+
+def tearDownModule():
+    # qualify() commits, so the rollback FrappeTestCase does cannot remove the
+    # leads these tests create -- they would otherwise pile up in the site.
+    from .test_engine import _delete_test_leads
+
+    _delete_test_leads()

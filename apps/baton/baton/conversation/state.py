@@ -82,22 +82,24 @@ def mark_human_intervention(reference_doctype, reference_name, user=None, reason
     return st
 
 
-def cancel_pending_ai_actions(reference_doctype, reference_name):
+def cancel_pending_ai_actions(reference_doctype, reference_name, include_reply_waits=True):
     """Withdraw queued AI work for this record.
 
     Spec §81's edge case: a workflow that is *waiting* to send later must be
     cancelled, not merely delayed -- otherwise it fires after the human has
     already replied.
     """
-    runs = frappe.get_all(
-        "Baton Workflow Run",
-        filters={
-            "reference_doctype": reference_doctype,
-            "reference_name": reference_name,
-            "status": "Waiting",
-        },
-        pluck="name",
-    )
+    filters = {
+        "reference_doctype": reference_doctype,
+        "reference_name": reference_name,
+        "status": "Waiting",
+    }
+    if not include_reply_waits:
+        # A contact's reply must not cancel the run that parked waiting for it.
+        # A human taking over still cancels everything, which is the default.
+        filters["waiting_for"] = ["!=", "Reply"]
+
+    runs = frappe.get_all("Baton Workflow Run", filters=filters, pluck="name")
     for r in runs:
         frappe.db.set_value("Baton Workflow Run", r, {
             "status": "Cancelled",
