@@ -5,6 +5,7 @@ here because that is what they have in common.
 """
 
 import json
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -50,13 +51,35 @@ class TestTheTestButton(FrappeTestCase):
                          "the test ran without a record, so nothing was exercised")
 
     def test_it_warns_rather_than_reporting_a_hollow_success(self):
-        for name in frappe.get_all("CRM Lead", pluck="name"):
-            frappe.delete_doc("CRM Lead", name, force=True, ignore_permissions=True)
-        frappe.db.commit()
+        """Simulates "no records to test against" by making the lookup come back
+        empty for CRM Lead only.
 
+        This previously deleted every CRM Lead on the site and committed. It
+        proved the right thing and destroyed the database to do it: run against
+        a real bench and the suite silently wiped 13 leads, orphaning the deals
+        that referenced them. A test may not depend on emptying production
+        tables.
+        """
         saved = self._built_in_the_ui("T Audit Empty")
-        result = test_run(saved["name"])
+
+        real_get_all = frappe.get_all
+
+        def no_leads(doctype, *args, **kwargs):
+            if doctype == "CRM Lead":
+                return []
+            return real_get_all(doctype, *args, **kwargs)
+
+        with patch.object(frappe, "get_all", side_effect=no_leads):
+            result = test_run(saved["name"])
+
         self.assertTrue(result["warning"], "a test that ran against nothing looked like a pass")
+
+    def test_the_empty_case_does_not_delete_anything(self):
+        """Guards the fix above: the suite must leave the lead table alone."""
+        before = frappe.db.count("CRM Lead")
+        self.test_it_warns_rather_than_reporting_a_hollow_success()
+        self.assertEqual(frappe.db.count("CRM Lead"), before,
+                         "the suite deleted real records to make a point")
 
 
 class TestFallbackIsNotADeadEnd(FrappeTestCase):

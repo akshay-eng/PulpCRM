@@ -18,11 +18,11 @@
   "condition",
   "sec_nodes",
   "nodes",
+  "kind",
   "trigger_event_name",
   "sec_triggers",
   "triggers",
-  "description",
-  "kind"
+  "description"
  ],
  "fields": [
   {
@@ -102,6 +102,15 @@
    "label": "Event name"
   },
   {
+   "default": "Workflow",
+   "description": "A Bot reacts to a trigger and finishes. A Workflow may also pause -- for a delay, a reply, or an approval.",
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Kind",
+   "options": "Workflow\nBot"
+  },
+  {
    "fieldname": "sec_triggers",
    "fieldtype": "Section Break",
    "label": "When this happens"
@@ -116,21 +125,12 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
-  },
-  {
-   "default": "Workflow",
-   "description": "A Bot reacts to a trigger and finishes. A Workflow may also pause -- for a delay, a reply, or an approval.",
-   "fieldname": "kind",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Kind",
-   "options": "Workflow\nBot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-22 08:16:24.321461",
+ "modified": "2026-08-22 16:43:49.994163",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Workflow",
