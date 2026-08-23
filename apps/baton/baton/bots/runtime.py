@@ -211,7 +211,7 @@ def _park(run, park, state):
 
 def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
             run_reason="manual", event_payload=None, resume_run=None,
-            inbound_message=None, dry_run=False, since=None):
+            inbound_message=None, inbound_channel=None, dry_run=False, since=None):
     """Start a bot, or continue one that was waiting. Returns the run name."""
     bot = frappe.get_doc("Baton Bot", bot_name)
     if not bot.enabled and run_reason not in ("test", "manual"):
@@ -255,7 +255,16 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
             })
 
     if inbound_message:
-        text = frappe.db.get_value("WhatsApp Message", inbound_message, "message")
+        from baton.conversation.thread import message_text_and_time
+
+        channel = inbound_channel or bot.channel or "WhatsApp"
+        text, _ = message_text_and_time(channel, inbound_message)
+
+        if text and bot.get("off_topic_guard_enabled", 1) and not dry_run:
+            refused = _screen_off_topic(bot, run, doc, state, event_payload, channel, text)
+            if refused:
+                return run.name
+
         state.setdefault("observations", []).append(
             {"tool": "wait_for_reply", "result": {"they_said": cstr(text)[:900]}})
     elif run_reason == "timeout":
@@ -263,6 +272,71 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
             {"tool": "wait_for_reply", "result": {"no_reply": "They did not answer in time."}})
 
     return _loop(bot, run, doc, state, event_payload, dry_run=dry_run)
+
+
+REFUSAL = ("That's out of scope, I can't help with that — happy to help "
+          "with any of our services though.")
+
+
+def _last_question(doc, state):
+    """What this run last asked, or the best available guess.
+
+    Prefers this run's own memory over Baton Qualification Result.next_question:
+    requalify() is enqueued separately and unordered from a bot's own resume, so
+    it is not guaranteed to reflect what THIS run actually said last.
+    """
+    asked = (state.get("vars") or {}).get("last_question_asked")
+    if asked:
+        return asked
+    if not doc:
+        return None
+    result = frappe.get_all(
+        "Baton Qualification Result",
+        filters={"reference_doctype": doc.doctype, "reference_name": doc.name},
+        fields=["next_question"], order_by="creation desc", limit_page_length=1,
+    )
+    return result[0].next_question if result and result[0].next_question else None
+
+
+def _screen_off_topic(bot, run, doc, state, event_payload, channel, text):
+    """True if the reply was off-topic and handled (refused + re-parked)."""
+    from baton.bots import guard
+
+    last_q = _last_question(doc, state)
+    on_topic, _ = guard.is_on_topic(text, last_q)
+    if on_topic:
+        return False
+
+    message = f"{REFUSAL} {last_q}".strip() if last_q else REFUSAL
+    ctx = {"bot": bot, "run": run, "doc": doc, "vars": state.get("vars") or {},
+          "turn": cint(state.get("turn")), "payload": event_payload or {}}
+    try:
+        if channel == "Email":
+            bot_tools._send_email(ctx, {"subject": "Re: your message", "body": message})
+        else:
+            bot_tools._send_whatsapp(ctx, {"message": message})
+    except Exception as e:
+        log_action("bot.off_topic_refused", status="Failed", actor_type="AI_AGENT",
+                   reference_doctype=doc.doctype if doc else None,
+                   reference_name=doc.name if doc else None,
+                   workflow_run=run.name, bot=bot.name, error=str(e)[:400])
+    else:
+        log_action("bot.off_topic_refused", actor_type="AI_AGENT",
+                   reference_doctype=doc.doctype if doc else None,
+                   reference_name=doc.name if doc else None,
+                   workflow_run=run.name, bot=bot.name,
+                   reason="Skipped the main turn; sent the scripted redirect instead.")
+
+    state["vars"] = ctx["vars"]
+    state["vars"]["last_question_asked"] = last_q or message
+    state["turn"] = ctx["turn"]
+    _step(run, cint(state.get("steps_used")) + 1, "off-topic redirect", "Success",
+         {"tool": "guard", "refused": True, "message": message}, 0)
+    state["steps_used"] = cint(state.get("steps_used")) + 1
+
+    hours = cint(bot.reply_timeout_hours) or 24
+    _park(run, bot_tools.Park("Reply", hours * 3600, channel=bot.channel or "Any"), state)
+    return True
 
 
 def bot_approval_gated(bot):
@@ -391,6 +465,15 @@ def _loop(bot, run, doc, state, event_payload=None, dry_run=False):
         state["turn"] = ctx["turn"]
         state["steps_used"] = used
 
+        # Remembered so a later off-topic reply can be steered back to the
+        # actual last thing this run asked, rather than guessing from a
+        # requalify() pass that runs concurrently and unordered.
+        if decision["tool"] in ("send_whatsapp", "send_email") and isinstance(result, dict) \
+                and result.get("sent"):
+            asked = decision["args"].get("message") or decision["args"].get("body")
+            if asked:
+                state["vars"]["last_question_asked"] = cstr(asked)[:900]
+
         if isinstance(result, bot_tools.Park):
             _step(run, used, f"step {used}", "Success",
                   {"tool": decision["tool"], "waiting": result.kind}, ms)
@@ -473,7 +556,7 @@ def start_inbound_bots(reference_doctype, reference_name, channel, message_name)
                        enqueue_after_commit=True,
                        bot_name=row.parent, reference_doctype=reference_doctype,
                        reference_name=reference_name, run_reason="inbound",
-                       inbound_message=message_name)
+                       inbound_message=message_name, inbound_channel=channel)
 
 
 def handle_document_event(doc, method):

@@ -48,7 +48,9 @@ def resume_on_inbound(reference_doctype, reference_name, channel, message_name):
     # A webhook redelivering an old message must not wake a run that parked
     # after it was sent -- the run would read a reply to a question it never
     # asked.
-    sent_at = frappe.db.get_value("WhatsApp Message", message_name, "creation")
+    from baton.conversation.thread import message_text_and_time
+
+    _, sent_at = message_text_and_time(channel, message_name)
     if sent_at and run.waiting_since and get_datetime(sent_at) < get_datetime(run.waiting_since):
         return None
 
@@ -68,6 +70,7 @@ def resume_on_inbound(reference_doctype, reference_name, channel, message_name):
             bot_name=run.bot,
             resume_run=run.name,
             inbound_message=message_name,
+            inbound_channel=channel,
             run_reason="reply",
         )
         log_action("run.resumed", reference_doctype=reference_doctype,
@@ -100,12 +103,15 @@ def resume_on_inbound(reference_doctype, reference_name, channel, message_name):
 
 @frappe.whitelist()
 def resolve_approval(approval, decision, note=None):
-    """Approve or reject, and continue the run that was waiting on it.
+    """Approve or reject from the CRM, and continue whatever was waiting.
 
-    `decision` is "Approved" or "Rejected". Approval continues down the node's
-    normal branch; rejection takes the alternate one, which is the same route a
-    timeout takes.
+    The decision itself lives in baton.bots.approval.resolve, because the same
+    answer can arrive from an emailed link or a WhatsApp reply and must mean the
+    same thing however it got here. This endpoint only adds the permission check
+    that a logged-in caller needs.
     """
+    from baton.bots.approval import resolve
+
     frappe.only_for(["System Manager", "Sales Manager"])
 
     if decision not in ("Approved", "Rejected"):
@@ -113,25 +119,19 @@ def resolve_approval(approval, decision, note=None):
 
     doc = frappe.get_doc("Baton Approval", approval)
     if doc.status != "Pending":
-        return {"ok": False, "message": frappe._("This approval is already {0}.").format(doc.status)}
+        return {"ok": False,
+                "message": frappe._("This approval is already {0}.").format(doc.status)}
 
-    doc.status = decision
-    doc.resolved_by = frappe.session.user
-    doc.resolved_at = frappe.utils.now_datetime()
-    if note:
-        doc.draft_text = note
-    doc.save(ignore_permissions=True)
-    frappe.db.commit()
+    return resolve(doc, decision, by=frappe.session.user, note=note)
 
-    if not doc.workflow_run:
-        return {"ok": True, "resumed": None}
 
-    run = frappe.db.get_value(
-        "Baton Workflow Run", doc.workflow_run,
-        ["name", "workflow", "status", "resume_node", "resume_node_alt"], as_dict=True)
-    if not run or run.status != "Waiting":
-        return {"ok": True, "resumed": None}
+def resume_workflow_after_approval(run, decision):
+    """Continue a *workflow* run past its approval node.
 
+    Approval continues down the node's normal branch; rejection takes the
+    alternate one, which is the same route a timeout takes. A bot has no graph,
+    so this path does not apply to it.
+    """
     target = run.resume_node if decision == "Approved" else run.resume_node_alt
     if not claim_run(run.name):
         return {"ok": True, "resumed": None}
@@ -143,6 +143,20 @@ def resolve_approval(approval, decision, note=None):
         })
         frappe.db.commit()
         return {"ok": True, "resumed": run.name}
+
+    frappe.enqueue(
+        "baton.workflow.engine.run_workflow",
+        queue=RUN_QUEUE,
+        timeout=RUN_TIMEOUT,
+        enqueue_after_commit=True,
+        job_id=f"baton-run-{run.name}",
+        deduplicate=True,
+        workflow_name=run.workflow,
+        resume_run=run.name,
+        resume_at_node=target,
+        run_reason=f"approval:{decision.lower()}",
+    )
+    return {"ok": True, "resumed": run.name}
 
     frappe.enqueue(
         "baton.workflow.engine.run_workflow",

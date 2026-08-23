@@ -14,6 +14,25 @@ from frappe.utils import get_datetime
 
 AUTHOR_LABEL = {"contact": "Customer", "human": "Sales rep", "ai": "Assistant"}
 
+# Which doctype a message id belongs to, by channel -- the one thing every
+# caller of an inbound-message id needs and would otherwise hardcode
+# "WhatsApp Message" and quietly break the day a second channel exists.
+MESSAGE_DOCTYPE = {"Email": "Communication", "WhatsApp": "WhatsApp Message"}
+
+
+def message_text_and_time(channel, message_name):
+    """(text, creation) for an inbound message id, resolved by channel.
+
+    Returns (None, None) if the id does not exist -- a webhook redelivery or
+    a race with a rolled-back insert, not something worth raising over.
+    """
+    doctype = MESSAGE_DOCTYPE.get(channel, "WhatsApp Message")
+    content_field = "content" if doctype == "Communication" else "message"
+    row = frappe.db.get_value(doctype, message_name, [content_field, "creation"], as_dict=True)
+    if not row:
+        return None, None
+    return row.get(content_field), row.get("creation")
+
 
 def _whatsapp_messages(reference_doctype, reference_name):
     if not frappe.db.exists("DocType", "WhatsApp Message"):
