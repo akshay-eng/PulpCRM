@@ -11,7 +11,7 @@ import json
 import frappe
 from frappe import _
 
-from baton.bots.catalog import BY_ID, public_catalog
+from baton.bots.catalog import connector_by_id, BY_ID, public_catalog
 
 DEFAULTS = {
     "max_steps": 8,
@@ -133,6 +133,18 @@ def get_bot(name):
         "channel": doc.channel or "WhatsApp",
         "max_steps": doc.max_steps or DEFAULTS["max_steps"],
         "reply_timeout_hours": doc.reply_timeout_hours or DEFAULTS["reply_timeout_hours"],
+        # Runs on its own clock -- no trigger involved.
+        "schedule_mode": doc.schedule_mode or "Off",
+        "every_value": doc.every_value or 4,
+        "every_unit": doc.every_unit or "Hours",
+        "cron_expression": doc.cron_expression,
+        "last_run_at": doc.last_run_at,
+        "next_run_at": doc.next_run_at,
+        # Stops and asks a person before the listed actions.
+        "approval_channel": doc.approval_channel or "Off",
+        "approval_recipient": doc.approval_recipient,
+        "gated_tools": doc.gated_tools,
+        "approval_timeout_hours": doc.approval_timeout_hours or 24,
         "position_x": doc.position_x or DEFAULTS["position_x"],
         "position_y": doc.position_y or DEFAULTS["position_y"],
         "connectors": [
@@ -141,6 +153,7 @@ def get_bot(name):
                 "label": c.label or (BY_ID.get(c.connector) or {}).get("label"),
                 "enabled": c.enabled,
                 "config": json.loads(c.config) if c.config else {},
+                "disabled_tools": json.loads(c.disabled_tools) if c.disabled_tools else [],
                 "position_x": c.position_x or 0,
                 "position_y": c.position_y or 0,
             }
@@ -160,7 +173,12 @@ def get_bot(name):
             }
             for t in doc.get("triggers") or []
         ],
-        "models": frappe.get_all("Baton AI Model", filters={"enabled": 1}, pluck="name"),
+        # The provider and the actual model id travel with the name, so the
+        # dropdown can say "gemini-2.5-pro (Google Gemini)" rather than a label
+        # someone typed months ago that no longer matches what it points at.
+        "models": frappe.get_all(
+            "Baton AI Model", filters={"enabled": 1},
+            fields=["name", "provider", "model", "purpose"], order_by="name"),
     }
 
 
@@ -210,15 +228,16 @@ def _problems(data):
                     "message": _("No AI model is set up, so this bot cannot think. "
                                  "Add one under Settings > Models & channels.")})
 
-    if not (data.get("triggers") or []):
+    scheduled = (data.get("schedule_mode") or "Off") != "Off"
+    if not (data.get("triggers") or []) and not scheduled:
         out.append({"level": "warning", "target": "triggers",
-                    "message": _("No trigger, so this only runs when you start it "
-                                 "by hand.")})
+                    "message": _("No trigger and no schedule, so this only runs "
+                                 "when you start it by hand.")})
 
     seen = set()
     for c in connectors:
         cid = c.get("connector")
-        spec = BY_ID.get(cid)
+        spec = connector_by_id(cid)
         if not spec:
             out.append({"level": "error", "target": cid,
                         "message": _("Unknown connector {0}.").format(cid)})
@@ -254,17 +273,28 @@ def _tool_names(connector_id):
 
 
 @frappe.whitelist()
-def save_bot(data):
+def save_bot(data, draft=0):
+    """Persist a bot. `draft` saves work in progress.
+
+    A half-built bot fails validation -- no instructions yet, connectors removed
+    to be re-added -- so requiring it to be valid meant it could not be saved at
+    all, and a refresh threw the work away. A draft save keeps everything and
+    only refuses to leave a *live* bot in a broken state: if it has blocking
+    problems it is switched off rather than rejected, so nothing is lost and
+    nothing broken is running.
+    """
     if isinstance(data, str):
         data = json.loads(data)
 
     blocking = [p for p in _problems(data) if p["level"] == "error"]
-    if blocking:
+    if blocking and not frappe.utils.cint(draft):
         frappe.throw(
             _("This bot cannot be saved yet:") + "\n"
             + "\n".join(f"- {p['message']}" for p in blocking),
             title=_("Not ready"),
         )
+    if blocking:
+        data = {**data, "enabled": 0}
 
     name = data.get("name")
     if name and frappe.db.exists("Baton Bot", name):
@@ -274,7 +304,10 @@ def save_bot(data):
         doc = frappe.new_doc("Baton Bot")
         doc.bot_name = _unique_name(data.get("bot_name") or "Untitled bot")
 
-    for field in ("description", "instructions", "guardrails", "ai_model", "channel"):
+    for field in ("description", "instructions", "guardrails", "ai_model", "channel",
+                  "schedule_mode", "every_value", "every_unit", "cron_expression",
+                  "catch_up", "approval_channel", "approval_recipient", "gated_tools",
+                  "approval_timeout_hours"):
         if field in data:
             doc.set(field, data.get(field))
     doc.max_steps = data.get("max_steps") or DEFAULTS["max_steps"]
@@ -285,13 +318,15 @@ def save_bot(data):
 
     doc.set("connectors", [])
     for c in data.get("connectors") or []:
-        if c.get("connector") not in BY_ID:
+        spec = connector_by_id(c.get("connector"))
+        if not spec:
             continue
         doc.append("connectors", {
             "connector": c["connector"],
-            "label": c.get("label") or BY_ID[c["connector"]]["label"],
+            "label": c.get("label") or spec["label"],
             "enabled": 1 if c.get("enabled", 1) else 0,
             "config": json.dumps(c.get("config") or {}),
+            "disabled_tools": json.dumps(c.get("disabled_tools") or []),
             "position_x": c.get("position_x") or 0,
             "position_y": c.get("position_y") or 0,
         })
@@ -420,3 +455,23 @@ def get_run(name):
     from baton.api.workflow import get_run as workflow_run
 
     return workflow_run(name)
+
+
+@frappe.whitelist()
+def list_provider_models(provider=None, credential=None, base_url=None, api_key=None):
+    """Model ids this provider will actually accept.
+
+    Asked of the provider rather than typed, because a model id that does not
+    exist looks fine in the builder and fails at the first call. `credential`
+    uses a saved connection's stored key; `api_key` covers a connection being
+    set up for the first time, before it has been saved.
+    """
+    frappe.only_for(["System Manager", "Sales Manager"])
+
+    from baton import llm_catalog
+
+    if credential:
+        return llm_catalog.for_credential(credential)
+    if not provider:
+        frappe.throw(_("Pick a provider first."))
+    return llm_catalog.list_models(provider, base_url, api_key)

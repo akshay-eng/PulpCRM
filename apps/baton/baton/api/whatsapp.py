@@ -23,6 +23,18 @@ def tag_author(doc, method=None):
 
 def on_message(doc, method=None):
     """Drive the conversation state machine from every WhatsApp message."""
+    # Checked before anything else, and before the reference guard below: an
+    # approval reply comes from a manager's number, which usually matches no
+    # lead at all, so it would otherwise be dropped on the floor.
+    if doc.get("baton_author") == "contact":
+        from baton.bots.approval import try_reply
+
+        try:
+            if try_reply(doc):
+                return
+        except Exception:
+            frappe.log_error(title="Baton: approval reply check failed")
+
     ref_dt, ref_dn = doc.get("reference_doctype"), doc.get("reference_name")
     if not (ref_dt and ref_dn):
         return

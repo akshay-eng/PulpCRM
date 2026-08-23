@@ -29,7 +29,8 @@ def _bot(name="T Bot", connectors=("crm_leads",), **kw):
         "guardrails": kw.pop("guardrails", "Never quote a price."),
         "max_steps": kw.pop("max_steps", 4),
         "channel": kw.pop("channel", "WhatsApp"),
-        "connectors": [{"connector": c, "enabled": 1} for c in connectors],
+        "connectors": [c if isinstance(c, dict) else {"connector": c, "enabled": 1}
+                      for c in connectors],
         **kw,
     })
     doc.insert(ignore_permissions=True)
@@ -76,6 +77,22 @@ class TestToolFence(FrappeTestCase):
     def test_an_invented_tool_is_refused(self):
         with self.assertRaises(tools.ToolError):
             tools.execute("delete_everything", {}, self.ctx)
+
+    def test_a_tool_switched_off_on_an_attached_connector_is_refused(self):
+        """Leads is attached, but update_leads specifically has been turned off."""
+        bot = _bot("T Bot NoUpdate", connectors=(
+            {"connector": "crm_leads", "enabled": 1,
+             "disabled_tools": json.dumps(["update_leads"])},
+        ))
+        ctx = {**self.ctx, "bot": bot}
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("update_leads",
+                          {"name": self.lead.name, "values": {"status": "Contacted"}}, ctx)
+        self.assertIn("switched off", str(e.exception))
+
+        # A sibling tool on the same connector, not disabled, still works.
+        out = tools.execute("find_leads", {}, ctx)
+        self.assertIn("records", out)
 
     def test_a_write_to_an_unattached_doctype_is_refused(self):
         with self.assertRaises(tools.ToolError) as e:
@@ -197,6 +214,28 @@ class TestBotLoop(FrappeTestCase):
         doc = frappe.get_doc("Baton Workflow Run", run)
         self.assertIn("would_call", doc.steps[0].output)
 
+    def test_a_disabled_tool_is_never_offered_to_the_model(self):
+        """update_leads is filtered out before the prompt is even built, so a
+        model that names it anyway is treated the same as one naming a tool
+        that was never real -- the run ends rather than dispatching it."""
+        bot = _bot("T Bot Restricted", connectors=(
+            {"connector": "crm_leads", "enabled": 1,
+             "disabled_tools": json.dumps(["update_leads"])},
+        ))
+        before = frappe.db.get_value("CRM Lead", self.lead.name, "status")
+        script = _replies(
+            {"tool": "update_leads", "args": {"name": self.lead.name,
+                                              "values": {"status": "Contacted"}}, "done": False},
+        )
+        with patch("baton.bots.runtime.chat_json", side_effect=script):
+            run = runtime.run_bot(bot.name, doc=self.lead)
+
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertEqual(doc.status, "Completed")
+        self.assertIn("does not exist", doc.steps[0].output)
+        self.assertEqual(
+            frappe.db.get_value("CRM Lead", self.lead.name, "status"), before)
+
     def test_waiting_for_a_reply_parks_the_run_with_a_deadline(self):
         bot = _bot("T Bot Waiter", connectors=("crm_leads", "whatsapp"))
         script = _replies({"tool": "wait_for_reply", "args": {}, "done": False})
@@ -305,6 +344,26 @@ class TestBotDefinition(FrappeTestCase):
         self.assertEqual(again["connectors"][0]["config"]["url"], "https://example.com/x")
         self.assertEqual(again["connectors"][0]["position_x"], 120)
         self.assertEqual(again["triggers"][0]["trigger_doctype"], "CRM Lead")
+
+    def test_saving_round_trips_which_individual_tools_are_disabled(self):
+        saved = bot_api.save_bot(json.dumps({
+            "bot_name": "T Bot ToolToggle", "instructions": "Do things.",
+            "connectors": [
+                {"connector": "crm_leads", "enabled": 1,
+                 "disabled_tools": ["update_leads", "create_lead"]},
+            ],
+        }))
+        again = bot_api.get_bot(saved["name"])
+        self.assertEqual(
+            set(again["connectors"][0]["disabled_tools"]), {"update_leads", "create_lead"})
+
+    def test_a_connector_with_no_disabled_tools_round_trips_to_an_empty_list(self):
+        saved = bot_api.save_bot(json.dumps({
+            "bot_name": "T Bot ToolToggleDefault", "instructions": "Do things.",
+            "connectors": [{"connector": "crm_leads", "enabled": 1}],
+        }))
+        again = bot_api.get_bot(saved["name"])
+        self.assertEqual(again["connectors"][0]["disabled_tools"], [])
 
     def test_a_connector_missing_its_required_config_blocks_the_save(self):
         problems = bot_api.validate_bot(json.dumps({

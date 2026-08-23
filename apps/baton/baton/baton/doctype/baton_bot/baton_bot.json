@@ -20,13 +20,29 @@
   "col_m",
   "max_steps",
   "reply_timeout_hours",
+  "sec_approval",
+  "approval_channel",
+  "approval_recipient",
+  "col_appr",
+  "gated_tools",
+  "approval_timeout_hours",
   "sec_conn",
   "connectors",
+  "sec_schedule",
+  "schedule_mode",
+  "every_value",
+  "every_unit",
+  "cron_expression",
+  "col_sched",
+  "last_run_at",
+  "next_run_at",
+  "catch_up",
   "sec_trig",
   "triggers",
   "sec_pos",
   "position_x",
-  "position_y"
+  "position_y",
+  "schedule_token"
  ],
  "fields": [
   {
@@ -145,6 +161,112 @@
    "fieldname": "position_y",
    "fieldtype": "Int",
    "label": "Y"
+  },
+  {
+   "fieldname": "sec_schedule",
+   "fieldtype": "Section Break",
+   "label": "Runs on its own"
+  },
+  {
+   "default": "Off",
+   "description": "A scheduled bot keeps running on its own until it is switched off or deleted. It needs no trigger.",
+   "fieldname": "schedule_mode",
+   "fieldtype": "Select",
+   "label": "Schedule",
+   "options": "Off\nEvery\nOn a cron"
+  },
+  {
+   "default": "4",
+   "depends_on": "eval:doc.schedule_mode=='Every'",
+   "fieldname": "every_value",
+   "fieldtype": "Int",
+   "label": "Every"
+  },
+  {
+   "default": "Hours",
+   "depends_on": "eval:doc.schedule_mode=='Every'",
+   "fieldname": "every_unit",
+   "fieldtype": "Select",
+   "label": "Unit",
+   "options": "Minutes\nHours\nDays"
+  },
+  {
+   "depends_on": "eval:doc.schedule_mode=='On a cron'",
+   "description": "Standard five-field cron, e.g. 0 */4 * * * for every four hours.",
+   "fieldname": "cron_expression",
+   "fieldtype": "Data",
+   "label": "Cron"
+  },
+  {
+   "fieldname": "col_sched",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "What the bot is told to treat as 'since last time'.",
+   "fieldname": "last_run_at",
+   "fieldtype": "Datetime",
+   "label": "Last run",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_run_at",
+   "fieldtype": "Datetime",
+   "label": "Next run",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.schedule_mode && doc.schedule_mode!='Off'",
+   "description": "Otherwise the first run waits for the next due time.",
+   "fieldname": "catch_up",
+   "fieldtype": "Check",
+   "label": "Run immediately when saved"
+  },
+  {
+   "fieldname": "schedule_token",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Schedule token",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_approval",
+   "fieldtype": "Section Break",
+   "label": "Check with a human first"
+  },
+  {
+   "default": "Off",
+   "description": "How the bot asks permission before a guarded action.",
+   "fieldname": "approval_channel",
+   "fieldtype": "Select",
+   "label": "Ask over",
+   "options": "Off\nEmail\nWhatsApp"
+  },
+  {
+   "depends_on": "eval:doc.approval_channel && doc.approval_channel!='Off'",
+   "description": "An email address or a phone number, matching the channel.",
+   "fieldname": "approval_recipient",
+   "fieldtype": "Data",
+   "label": "Ask this person"
+  },
+  {
+   "fieldname": "col_appr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.approval_channel && doc.approval_channel!='Off'",
+   "description": "One tool name per line, e.g. send_whatsapp. The bot stops and waits before each of these.",
+   "fieldname": "gated_tools",
+   "fieldtype": "Small Text",
+   "label": "Actions needing approval"
+  },
+  {
+   "default": "24",
+   "depends_on": "eval:doc.approval_channel && doc.approval_channel!='Off'",
+   "fieldname": "approval_timeout_hours",
+   "fieldtype": "Int",
+   "label": "Give up after (hours)"
   }
  ],
  "grid_page_length": 50,

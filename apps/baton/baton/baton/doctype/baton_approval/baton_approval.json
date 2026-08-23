@@ -22,7 +22,12 @@
   "resolved_at",
   "col_r",
   "costs_template",
-  "workflow_run"
+  "workflow_run",
+  "token",
+  "bot",
+  "tool_name",
+  "channel",
+  "sent_to"
  ],
  "fields": [
   {
@@ -120,6 +125,40 @@
    "fieldtype": "Link",
    "label": "Workflow run",
    "options": "Baton Workflow Run",
+   "read_only": 1
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Token",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "bot",
+   "fieldtype": "Link",
+   "label": "Bot",
+   "options": "Baton Bot",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tool_name",
+   "fieldtype": "Data",
+   "label": "Action",
+   "read_only": 1
+  },
+  {
+   "fieldname": "channel",
+   "fieldtype": "Select",
+   "label": "Asked over",
+   "options": "\nEmail\nWhatsApp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_to",
+   "fieldtype": "Data",
+   "label": "Asked",
    "read_only": 1
   }
  ],

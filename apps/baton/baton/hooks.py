@@ -30,6 +30,15 @@ doc_events = {
             "baton.bots.runtime.handle_document_event",
         ],
     },
+    # Deliver outbound mail on press, not on the scheduler's 4-minute tick.
+    "Baton Bot": {
+        # A changed schedule takes effect on save, not after the old interval
+        # has finished elapsing.
+        "on_update": "baton.bots.scheduler.reschedule",
+    },
+    "Email Queue": {
+        "after_insert": "baton.api.email.send_now",
+    },
     "WhatsApp Message": {
         "before_insert": "baton.api.whatsapp.tag_author",
         # Runs after CRM's own validate hook (baton is installed last), which
@@ -46,6 +55,8 @@ scheduler_events = {
         # their cron expression inside the job.
         "* * * * *": [
             "baton.workflow.scheduler.tick",
+            # Bots that run on their own clock, with no trigger at all.
+            "baton.bots.scheduler.tick",
             # Durable waits: wake runs whose resume_at has passed (spec §107).
             "baton.workflow.scheduler.resume_due_runs",
             # Act on conversations whose human cooldown has elapsed (spec §28).
@@ -80,3 +91,7 @@ override_doctype_class = {
     # the vendored frappe_whatsapp app.
     "WhatsApp Message": "baton.overrides.whatsapp_message.BatonWhatsAppMessage",
 }
+
+
+# A test run must not be able to send mail. See baton/tests/__init__.py.
+before_tests = "baton.tests.mute_outbound"

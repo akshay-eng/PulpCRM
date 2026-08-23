@@ -13,7 +13,8 @@
   "position_x",
   "position_y",
   "sec_bc",
-  "config"
+  "config",
+  "disabled_tools"
  ],
  "fields": [
   {
@@ -59,6 +60,13 @@
    "fieldname": "config",
    "fieldtype": "Code",
    "label": "Config",
+   "options": "JSON"
+  },
+  {
+   "description": "Tool names from this connector's catalog entry that are switched off for this bot. Absent means all of them are on.",
+   "fieldname": "disabled_tools",
+   "fieldtype": "Code",
+   "label": "Disabled tools",
    "options": "JSON"
   }
  ],
