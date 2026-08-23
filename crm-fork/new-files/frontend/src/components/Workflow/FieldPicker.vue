@@ -12,7 +12,7 @@
       is misspelt. Without a trigger there is no record type to list, so say that
       rather than showing an empty box.
     -->
-    <div v-if="!doctype" class="mt-1 text-p-sm text-amber-600">
+    <div v-if="!doctype" class="mt-1 text-p-sm text-ink-amber-3">
       {{ __('Add a trigger so this knows which record it is working on.') }}
     </div>
   </div>

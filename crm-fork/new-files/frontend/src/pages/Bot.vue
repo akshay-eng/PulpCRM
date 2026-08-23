@@ -1,10 +1,12 @@
 <template>
   <LayoutHeader>
     <template #left-header>
-      <Breadcrumbs :items="[
-        { label: __('AI Automation'), route: { name: 'Automation' } },
-        { label: __('Bots'), route: { name: 'Bots' } },
-      ]" />
+      <Breadcrumbs
+        :items="[
+          { label: __('AI Automation'), route: { name: 'Automation' } },
+          { label: __('Bots'), route: { name: 'Bots' } },
+        ]"
+      />
       <span class="mx-1 text-ink-gray-4">/</span>
       <input
         v-model="nameDraft"
@@ -22,27 +24,51 @@
       <Button :label="__('Try it')" :loading="testing" @click="tryIt">
         <template #prefix><LucidePlay class="h-4 w-4" /></template>
       </Button>
-      <Button variant="solid" :loading="saving" :label="__('Save')" @click="save" />
-      <Button :variant="bot.enabled ? 'subtle' : 'outline'"
-        :label="bot.enabled ? __('Switch off') : __('Switch on')" @click="toggle" />
+      <Button
+        variant="solid"
+        :loading="saving"
+        :label="__('Save')"
+        @click="save"
+      />
+      <Button
+        :variant="bot.enabled ? 'subtle' : 'outline'"
+        :label="bot.enabled ? __('Switch off') : __('Switch on')"
+        @click="toggle"
+      />
     </template>
   </LayoutHeader>
 
   <div class="flex flex-1 overflow-hidden">
-    <ConnectorPalette :catalog="catalog" :attached="attachedIds" @add="addConnector($event)" />
+    <ConnectorPalette
+      :catalog="catalog"
+      :attached="attachedIds"
+      @add="addConnector($event)"
+    />
 
     <div class="relative flex-1" @dragover.prevent @drop="onDrop">
       <div class="absolute left-4 top-4 z-10 w-[268px] space-y-2">
-        <TriggerPanel :triggers="bot.triggers" :doctypes="doctypes" :events="[]"
-          allow-inbound :title="__('Wake it up when')" />
+        <TriggerPanel
+          :triggers="bot.triggers"
+          :doctypes="doctypes"
+          :events="[]"
+          allow-inbound
+          :title="__('Wake it up when')"
+        />
       </div>
 
-      <div v-if="problems.length"
-        class="absolute bottom-4 left-4 z-10 max-w-[380px] rounded-lg border border-outline-gray-2 bg-surface-white p-3 shadow-sm">
-        <div class="mb-1 text-p-sm font-medium text-ink-gray-6">{{ __('Before this can run') }}</div>
-        <div v-for="(p, i) in problems" :key="i"
+      <div
+        v-if="problems.length"
+        class="absolute bottom-4 left-4 z-10 max-w-[380px] rounded-lg border border-outline-gray-2 bg-surface-white p-3 shadow-sm"
+      >
+        <div class="mb-1 text-p-sm font-medium text-ink-gray-6">
+          {{ __('Before this can run') }}
+        </div>
+        <div
+          v-for="(p, i) in problems"
+          :key="i"
           class="flex items-start gap-1.5 py-0.5 text-p-sm"
-          :class="p.level === 'error' ? 'text-red-600' : 'text-amber-600'">
+          :class="p.level === 'error' ? 'text-ink-red-4' : 'text-ink-amber-3'"
+        >
           <span class="shrink-0">{{ p.level === 'error' ? '✕' : '!' }}</span>
           <span>{{ p.message }}</span>
         </div>
@@ -55,57 +81,95 @@
         :max-zoom="1.8"
         :nodes-connectable="false"
         fit-view-on-init
-        class="h-full w-full"
+        class="pulp-flow h-full w-full"
         @node-click="onNodeClick"
         @node-drag-stop="onNodeDragStop"
         @pane-click="selectedId = null"
       >
-        <Background pattern-color="#cbd5e1" :gap="22" :size="1.4" />
+        <Background
+          pattern-color="var(--outline-gray-2)"
+          :gap="22"
+          :size="1.4"
+        />
         <Controls position="bottom-right" />
         <template #node-brain="props">
-          <BotBrainNode :data="props.data" :selected="props.id === selectedId" />
+          <BotBrainNode
+            :data="props.data"
+            :selected="props.id === selectedId"
+          />
         </template>
         <template #node-connector="props">
-          <ConnectorNode :data="props.data" :selected="props.id === selectedId" />
+          <ConnectorNode
+            :data="props.data"
+            :selected="props.id === selectedId"
+          />
         </template>
       </VueFlow>
     </div>
 
-    <div v-if="selectedId"
-      class="flex w-[360px] shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white">
-      <div class="flex items-center justify-between border-b border-outline-gray-2 px-4 py-3">
+    <div
+      v-if="selectedId"
+      class="flex w-[360px] shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white"
+    >
+      <div
+        class="flex items-center justify-between border-b border-outline-gray-2 px-4 py-3"
+      >
         <div class="text-p-base font-medium text-ink-gray-8">
           {{ selectedId === '__brain__' ? __('The brief') : __('Connector') }}
         </div>
-        <button class="text-ink-gray-5 hover:text-ink-gray-8" @click="selectedId = null">
+        <button
+          class="text-ink-gray-5 hover:text-ink-gray-8"
+          @click="selectedId = null"
+        >
           <LucideX class="h-4 w-4" />
         </button>
       </div>
       <div class="flex-1 overflow-y-auto px-4 py-4">
-        <BotBrief v-if="selectedId === '__brain__'" :bot="bot" :models="models" @rename="rename" />
-        <ConnectorConfig v-else-if="selectedConnector"
+        <BotBrief
+          v-if="selectedId === '__brain__'"
+          :bot="bot"
+          @rename="rename"
+        />
+        <ConnectorConfig
+          v-else-if="selectedConnector"
           :node="selectedConnector"
           :spec="specOf(selectedConnector.connector)"
           :availabilities="availabilities"
           :senders="senders"
-          @remove="removeConnector(selectedConnector)" />
+          @remove="removeConnector(selectedConnector)"
+        />
       </div>
     </div>
   </div>
 
-  <Dialog v-model="showRuns" :options="{ title: __('What this bot did'), size: '3xl' }">
+  <Dialog
+    v-model="showRuns"
+    :options="{ title: __('What this bot did'), size: '3xl' }"
+  >
     <template #body-content>
       <RunDetail v-if="openRun" :run="openRun" @back="openRun = null" />
       <template v-else>
-        <div v-if="!runs.length" class="py-6 text-center text-p-base text-ink-gray-5">
+        <div
+          v-if="!runs.length"
+          class="py-6 text-center text-p-base text-ink-gray-5"
+        >
           {{ __('It has not run yet. Hit “Try it”.') }}
         </div>
-        <button v-for="r in runs" :key="r.name"
+        <button
+          v-for="r in runs"
+          :key="r.name"
           class="flex w-full items-center gap-2 border-b border-outline-gray-1 py-2 text-left last:border-0 hover:bg-surface-gray-1"
-          @click="openRunDetail(r.name)">
-          <Badge :theme="statusTheme(r.status)" variant="subtle">{{ r.status }}</Badge>
-          <span class="text-p-base text-ink-gray-7">{{ r.reference_name || '—' }}</span>
-          <span class="ml-auto text-p-sm text-ink-gray-5">{{ r.creation }}</span>
+          @click="openRunDetail(r.name)"
+        >
+          <Badge :theme="statusTheme(r.status)" variant="subtle">{{
+            r.status
+          }}</Badge>
+          <span class="text-p-base text-ink-gray-7">{{
+            r.reference_name || '—'
+          }}</span>
+          <span class="ml-auto text-p-sm text-ink-gray-5">{{
+            r.creation
+          }}</span>
           <LucideChevronRight class="h-4 w-4 text-ink-gray-4" />
         </button>
       </template>
@@ -143,6 +207,7 @@ import LucideX from '~icons/lucide/x'
 import LucidePlay from '~icons/lucide/play'
 import LucideHistory from '~icons/lucide/history'
 import LucideChevronRight from '~icons/lucide/chevron-right'
+import { useAICredentials } from '@/stores/aiCredentials'
 
 const route = useRoute()
 const router = useRouter()
@@ -150,7 +215,6 @@ const { screenToFlowCoordinate, fitView } = useVueFlow()
 
 const bot = ref({ bot_name: '', connectors: [], triggers: [], enabled: 0 })
 const catalog = ref([])
-const models = ref([])
 const doctypes = ref([])
 const availabilities = ref([])
 const senders = ref([])
@@ -164,33 +228,54 @@ const testing = ref(false)
 const showRuns = ref(false)
 const flowNodes = ref([])
 const flowEdges = ref([])
+const { getSelection, setSelection, isReady, requestCredential } =
+  useAICredentials()
 
-const attachedIds = computed(() => (bot.value.connectors || []).map((c) => c.connector))
+const attachedIds = computed(() =>
+  (bot.value.connectors || []).map((c) => c.connector),
+)
 const selectedConnector = computed(
-  () => (bot.value.connectors || []).find((c) => c.connector === selectedId.value) || null,
+  () =>
+    (bot.value.connectors || []).find(
+      (c) => c.connector === selectedId.value,
+    ) || null,
 )
 const specOf = (id) => catalog.value.find((c) => c.id === id) || { tools: [] }
 const statusTheme = (s) =>
-  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[s] || 'blue'
+  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[
+    s
+  ] || 'blue'
 
 /** Where a newly dropped connector goes when it lands on the brain itself. */
 function freeSpot(index) {
-  const ring = [[160, 90], [680, 90], [160, 430], [680, 430], [110, 260], [730, 260]]
+  const ring = [
+    [160, 90],
+    [680, 90],
+    [160, 430],
+    [680, 430],
+    [110, 260],
+    [730, 260],
+  ]
   return ring[index % ring.length]
 }
 
 function syncGraph() {
-  const nodes = [{
-    id: '__brain__',
-    type: 'brain',
-    position: { x: bot.value.position_x || 420, y: bot.value.position_y || 260 },
-    data: {
-      bot_name: bot.value.bot_name,
-      instructions: bot.value.instructions,
-      guardrails: bot.value.guardrails,
-      model: bot.value.ai_model,
+  const nodes = [
+    {
+      id: '__brain__',
+      type: 'brain',
+      position: {
+        x: bot.value.position_x || 420,
+        y: bot.value.position_y || 260,
+      },
+      data: {
+        bot_name: bot.value.bot_name,
+        instructions: bot.value.instructions,
+        guardrails: bot.value.guardrails,
+        model: bot.value.ai_model,
+      },
     },
-  }]
+  ]
   const edges = []
 
   for (const c of bot.value.connectors || []) {
@@ -204,7 +289,9 @@ function syncGraph() {
         icon: spec.icon,
         enabled: c.enabled,
         toolCount: (spec.tools || []).length,
-        needsCredential: Boolean(spec.credential && !spec.credential.configured),
+        needsCredential: Boolean(
+          spec.credential && !spec.credential.configured,
+        ),
         credentialLabel: spec.credential?.label,
       },
     })
@@ -230,6 +317,9 @@ function validate() {
     try {
       problems.value = await call('baton.api.bot.validate_bot', {
         data: JSON.stringify(bot.value),
+        browser_model: isReady(bot.value.ai_model)
+          ? bot.value.ai_model
+          : undefined,
       })
     } catch (e) {
       problems.value = []
@@ -247,7 +337,10 @@ watch(bot, syncGraph, { deep: true })
  */
 watch(
   () => Boolean(selectedId.value),
-  () => nextTick(() => setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 60)),
+  () =>
+    nextTick(() =>
+      setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 60),
+    ),
 )
 
 function onNodeClick({ node }) {
@@ -297,7 +390,9 @@ function addConnector(spec, at) {
 }
 
 function removeConnector(c) {
-  bot.value.connectors = bot.value.connectors.filter((x) => x.connector !== c.connector)
+  bot.value.connectors = bot.value.connectors.filter(
+    (x) => x.connector !== c.connector,
+  )
   selectedId.value = null
 }
 
@@ -310,8 +405,10 @@ async function load() {
   ])
   data.connectors = data.connectors || []
   data.triggers = data.triggers || []
+  if (!data.ai_model) {
+    data.ai_model = getSelection(`bot:${data.name || route.params.botId}`)
+  }
   bot.value = data
-  models.value = data.models || []
   nameDraft.value = data.bot_name
   catalog.value = cat
   doctypes.value = meta.doctypes
@@ -324,12 +421,15 @@ async function save() {
   saving.value = true
   try {
     const saved = await call('baton.api.bot.save_bot', {
-      data: JSON.stringify({ ...bot.value, name: bot.value.name || route.params.botId }),
+      data: JSON.stringify({
+        ...bot.value,
+        name: bot.value.name || route.params.botId,
+      }),
     })
     saved.connectors = saved.connectors || []
     saved.triggers = saved.triggers || []
     bot.value = saved
-    models.value = saved.models || []
+    setSelection(`bot:${saved.name}`, saved.ai_model || '')
     syncGraph()
     toast.success(__('Saved'))
     return true
@@ -349,7 +449,8 @@ async function rename() {
   }
   try {
     const newName = await call('baton.api.bot.rename_bot', {
-      name: bot.value.name, new_name: wanted,
+      name: bot.value.name,
+      new_name: wanted,
     })
     router.replace({ name: 'Bot', params: { botId: newName } })
     bot.value.name = newName
@@ -363,19 +464,28 @@ async function rename() {
 async function toggle() {
   if (!(await save())) return
   bot.value.enabled = await call('baton.api.bot.set_enabled', {
-    name: bot.value.name, enabled: bot.value.enabled ? 0 : 1,
+    name: bot.value.name,
+    enabled: bot.value.enabled ? 0 : 1,
   })
 }
 
 async function tryIt() {
   if (!(await save())) return
+  if (!isReady(bot.value.ai_model)) {
+    toast.warning(__('Choose an AI key configured in this browser first.'))
+    return
+  }
   testing.value = true
   try {
-    const res = await call('baton.api.bot.test_bot', { name: bot.value.name })
+    const res = await call('baton.api.bot.test_bot', {
+      name: bot.value.name,
+      credential: requestCredential(bot.value.ai_model),
+    })
     if (!res.ok) return toast.warning(res.message)
     // Say what happened, not that something happened. A run that failed used to
     // toast "Dry run finished" and hide the reason inside the run dialog.
-    if (res.run?.status === 'Failed') toast.error(res.run.error || __('The run failed'))
+    if (res.run?.status === 'Failed')
+      toast.error(res.run.error || __('The run failed'))
     else if (res.warning) toast.warning(res.warning)
     else toast.success(__('Dry run finished — nothing was actually sent.'))
     await loadRuns()

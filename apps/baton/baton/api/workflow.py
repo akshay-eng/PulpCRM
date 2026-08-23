@@ -697,7 +697,7 @@ def set_enabled(name, enabled):
 
 
 @frappe.whitelist()
-def test_run(name, reference_doctype=None, reference_name=None):
+def test_run(name, reference_doctype=None, reference_name=None, credential=None):
     from baton.workflow.engine import run_workflow
 
     frappe.only_for(["System Manager", "Sales Manager"])
@@ -733,7 +733,10 @@ def test_run(name, reference_doctype=None, reference_name=None):
     # `enabled` to 1 and restore it in a finally -- which left the workflow
     # permanently live, messaging real customers, if the worker died between the
     # two commits.
-    run_name = run_workflow(name, doc=doc, run_reason="test")
+    from baton.llm import use_client_credential
+
+    with use_client_credential(credential):
+        run_name = run_workflow(name, doc=doc, run_reason="test")
 
     if not run_name:
         return {"ok": False, "message": _("Workflow condition did not match; nothing ran.")}

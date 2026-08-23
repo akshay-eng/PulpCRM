@@ -1,7 +1,11 @@
 <template>
   <SettingsLayoutBase
     :title="__('AI Agents')"
-    :description="__('An agent asks the customer questions and reports back what it learned. It can only choose between options you define here.')"
+    :description="
+      __(
+        'An agent asks the customer questions and reports back what it learned. It can only choose between options you define here.',
+      )
+    "
   >
     <template #header-actions>
       <Button variant="solid" :label="__('New agent')" @click="create" />
@@ -17,7 +21,9 @@
         class="flex flex-col items-center gap-2 rounded-lg border border-dashed border-outline-gray-2 py-10 text-ink-gray-5"
       >
         <LucideBot class="h-7 w-7" />
-        <div class="text-p-base font-medium text-ink-gray-7">{{ __('No agents yet') }}</div>
+        <div class="text-p-base font-medium text-ink-gray-7">
+          {{ __('No agents yet') }}
+        </div>
       </div>
 
       <div v-else class="flex gap-6">
@@ -26,12 +32,21 @@
             v-for="a in agents"
             :key="a.name"
             class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-p-sm"
-            :class="a.name === selectedName ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-7 hover:bg-surface-gray-2'"
+            :class="
+              a.name === selectedName
+                ? 'bg-surface-gray-3 text-ink-gray-9'
+                : 'text-ink-gray-7 hover:bg-surface-gray-2'
+            "
             @click="select(a.name)"
           >
             <LucideBot class="h-4 w-4 shrink-0" />
             <span class="truncate">{{ a.name }}</span>
-            <Badge v-if="!a.enabled" theme="gray" variant="subtle" class="ml-auto">
+            <Badge
+              v-if="!a.enabled"
+              theme="gray"
+              variant="subtle"
+              class="ml-auto"
+            >
               {{ __('Off') }}
             </Badge>
           </button>
@@ -39,13 +54,36 @@
 
         <div v-if="agent" class="min-w-0 flex-1">
           <div class="mb-4 flex items-center gap-3">
-            <Switch v-model="agent.enabled" :label="agent.enabled ? __('Enabled') : __('Disabled')" />
-            <Button class="ml-auto" :label="__('Test')" :loading="testing" @click="test" />
-            <Button variant="solid" :label="__('Save')" :loading="saving" @click="save" />
+            <Switch
+              v-model="agent.enabled"
+              :label="agent.enabled ? __('Enabled') : __('Disabled')"
+            />
+            <Button
+              class="ml-auto"
+              :label="__('Test')"
+              :loading="testing"
+              @click="test"
+            />
+            <Button
+              variant="solid"
+              :label="__('Save')"
+              :loading="saving"
+              @click="save"
+            />
           </div>
 
-          <FormControl v-model="agent.goal" type="textarea" :label="__('Goal')" class="mb-3" />
-          <FormControl v-model="agent.persona" type="textarea" :label="__('Tone')" class="mb-3" />
+          <FormControl
+            v-model="agent.goal"
+            type="textarea"
+            :label="__('Goal')"
+            class="mb-3"
+          />
+          <FormControl
+            v-model="agent.persona"
+            type="textarea"
+            :label="__('Tone')"
+            class="mb-3"
+          />
           <FormControl
             v-model="agent.business_context"
             type="textarea"
@@ -63,9 +101,22 @@
             {{ __('Options it chooses between') }}
           </div>
           <div v-for="(o, i) in agent.options" :key="i" class="mb-2 flex gap-2">
-            <FormControl v-model="o.key" type="text" :placeholder="__('key')" class="w-[130px]" />
-            <FormControl v-model="o.label" type="text" :placeholder="__('Label')" class="flex-1" />
-            <button class="text-ink-gray-5 hover:text-red-600" @click="agent.options.splice(i, 1)">
+            <FormControl
+              v-model="o.key"
+              type="text"
+              :placeholder="__('key')"
+              class="w-[130px]"
+            />
+            <FormControl
+              v-model="o.label"
+              type="text"
+              :placeholder="__('Label')"
+              class="flex-1"
+            />
+            <button
+              class="text-ink-gray-5 hover:text-red-600"
+              @click="agent.options.splice(i, 1)"
+            >
               <LucideX class="h-4 w-4" />
             </button>
           </div>
@@ -78,11 +129,28 @@
           <div class="mb-2 text-p-sm font-medium text-ink-gray-7">
             {{ __('Facts it should find out') }}
           </div>
-          <div v-for="(o, i) in agent.outcomes" :key="'o' + i" class="mb-2 flex items-center gap-2">
-            <FormControl v-model="o.key" type="text" :placeholder="__('key')" class="w-[130px]" />
-            <FormControl v-model="o.label" type="text" :placeholder="__('Label')" class="flex-1" />
+          <div
+            v-for="(o, i) in agent.outcomes"
+            :key="'o' + i"
+            class="mb-2 flex items-center gap-2"
+          >
+            <FormControl
+              v-model="o.key"
+              type="text"
+              :placeholder="__('key')"
+              class="w-[130px]"
+            />
+            <FormControl
+              v-model="o.label"
+              type="text"
+              :placeholder="__('Label')"
+              class="flex-1"
+            />
             <Checkbox v-model="o.required" :label="__('Required')" />
-            <button class="text-ink-gray-5 hover:text-red-600" @click="agent.outcomes.splice(i, 1)">
+            <button
+              class="text-ink-gray-5 hover:text-red-600"
+              @click="agent.outcomes.splice(i, 1)"
+            >
               <LucideX class="h-4 w-4" />
             </button>
           </div>
@@ -91,16 +159,25 @@
             @click="agent.outcomes.push({ key: '', label: '', required: 0 })"
           />
 
-          <div v-if="result" class="mt-5 rounded-lg border border-outline-gray-2 p-3">
+          <div
+            v-if="result"
+            class="mt-5 rounded-lg border border-outline-gray-2 p-3"
+          >
             <div class="mb-1 text-xs font-medium text-ink-gray-5">
-              {{ __('It would') }} <span class="font-mono">{{ result.action }}</span>
+              {{ __('It would') }}
+              <span class="font-mono">{{ result.action }}</span>
             </div>
             <div v-if="result.message" class="text-p-base text-ink-gray-8">
               “{{ result.message }}”
             </div>
             <div class="mt-1 text-xs text-ink-gray-5">{{ result.reason }}</div>
-            <div v-if="result.dropped?.length" class="mt-1 text-xs text-amber-600">
-              {{ __('Ignored from the model: {0}', [result.dropped.join(', ')]) }}
+            <div
+              v-if="result.dropped?.length"
+              class="mt-1 text-xs text-ink-amber-3"
+            >
+              {{
+                __('Ignored from the model: {0}', [result.dropped.join(', ')])
+              }}
             </div>
           </div>
         </div>
@@ -116,7 +193,15 @@
  * makes it safe to press while an agent is still being written.
  */
 import SettingsLayoutBase from '@/components/Layouts/SettingsLayoutBase.vue'
-import { Badge, Button, Checkbox, FormControl, Switch, call, toast } from 'frappe-ui'
+import {
+  Badge,
+  Button,
+  Checkbox,
+  FormControl,
+  Switch,
+  call,
+  toast,
+} from 'frappe-ui'
 import { ref, onMounted } from 'vue'
 import LucideBot from '~icons/lucide/bot'
 import LucideX from '~icons/lucide/x'
@@ -177,7 +262,9 @@ async function test() {
   testing.value = true
   result.value = null
   try {
-    result.value = await call('baton.api.agent.test_agent', { name: agent.value.agent_name })
+    result.value = await call('baton.api.agent.test_agent', {
+      name: agent.value.agent_name,
+    })
   } catch (e) {
     toast.error(e.messages?.[0] || __('Could not run the test'))
   } finally {

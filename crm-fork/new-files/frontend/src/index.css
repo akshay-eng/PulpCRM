@@ -1,0 +1,104 @@
+@import 'frappe-ui/style.css';
+
+@layer components {
+  .prose-f {
+    @apply break-all
+			max-w-none
+			prose
+			prose-code:break-all
+			prose-code:whitespace-pre-wrap
+			prose-img:border
+			prose-img:rounded-lg
+			prose-sm
+			prose-table:table-fixed
+			prose-td:border
+			prose-td:border-outline-gray-2
+			prose-td:p-2
+			prose-td:relative
+			prose-th:bg-surface-gray-2
+			prose-th:border
+			prose-th:border-outline-gray-2
+			prose-th:p-2
+			prose-th:relative;
+  }
+}
+
+/* Reka menu content (e.g. the kebab menu inside PrimaryDropdown) portals to
+   <body> without a z-index, so it falls behind frappe-ui Popover content
+   (z-[100]). Lift menus above popovers so nested menus stay visible. */
+.menu-content {
+  z-index: 101;
+}
+
+/* Pulp's light theme uses a warm citrus wash and orange primary actions while
+   preserving the existing semantic token system across the app. */
+:root:not([data-theme='dark']),
+[data-theme='light'] {
+  --surface-sidebar: oklch(0.985 0.012 58);
+  --surface-gray-1: oklch(0.98 0.018 58);
+  --surface-gray-2: oklch(0.955 0.035 58);
+  --surface-gray-3: oklch(0.92 0.06 55);
+  --surface-gray-8: oklch(0.47 0.16 37);
+  --surface-gray-9: oklch(0.55 0.18 40);
+  --surface-gray-10: oklch(0.65 0.21 42);
+  --surface-alpha-sidebar: oklch(0.985 0.012 58);
+  --outline-gray-1: oklch(0.9 0.045 58);
+  --outline-gray-2: oklch(0.82 0.075 55);
+  --outline-orange-1: oklch(0.72 0.18 48);
+  --outline-orange-2: oklch(0.65 0.21 42);
+}
+
+::selection {
+  background: var(--surface-orange-3);
+}
+
+body {
+  background: var(--surface-base);
+  color: var(--ink-gray-8);
+}
+
+/* Vue Flow ships a light-only default theme. Keep its canvas, labels, handles,
+   and controls on the same semantic tokens as the rest of Pulp. */
+.pulp-flow {
+  background: var(--surface-gray-1);
+  color: var(--ink-gray-8);
+  --vf-node-bg: var(--surface-elevation-2);
+  --vf-node-text: var(--ink-gray-8);
+  --vf-handle: var(--ink-gray-6);
+  --vf-connection-path: var(--outline-gray-4);
+}
+
+.pulp-flow .vue-flow__edge-textbg {
+  fill: var(--surface-elevation-2);
+}
+
+.pulp-flow .vue-flow__edge-text {
+  fill: var(--ink-gray-7);
+}
+
+.pulp-flow .vue-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--outline-gray-2);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.pulp-flow .vue-flow__controls-button {
+  border-bottom-color: var(--outline-gray-2);
+  background: var(--surface-elevation-2);
+  color: var(--ink-gray-8);
+}
+
+.pulp-flow .vue-flow__controls-button:hover {
+  background: var(--surface-gray-2);
+}
+
+.pulp-flow .vue-flow__controls-button svg {
+  fill: currentColor;
+}
+
+[data-theme='dark'] .menu-content {
+  border-color: var(--outline-gray-2);
+  background: var(--surface-elevation-2);
+  color: var(--ink-gray-8);
+}

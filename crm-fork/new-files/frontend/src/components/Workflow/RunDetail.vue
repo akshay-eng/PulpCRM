@@ -5,8 +5,12 @@
         <template #prefix><LucideArrowLeft class="h-4 w-4" /></template>
         {{ __('All runs') }}
       </Button>
-      <Badge :theme="statusTheme(run.status)" variant="subtle">{{ run.status }}</Badge>
-      <span class="text-sm text-ink-gray-6">{{ run.reference_name || '—' }}</span>
+      <Badge :theme="statusTheme(run.status)" variant="subtle">{{
+        run.status
+      }}</Badge>
+      <span class="text-sm text-ink-gray-6">{{
+        run.reference_name || '—'
+      }}</span>
       <span class="ml-auto text-xs text-ink-gray-5">{{ run.creation }}</span>
     </div>
 
@@ -20,7 +24,10 @@
       </span>
     </div>
 
-    <div v-if="run.error" class="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+    <div
+      v-if="run.error"
+      class="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+    >
       {{ run.error }}
     </div>
     <div
@@ -30,7 +37,10 @@
       {{ run.cancelled_reason }}
     </div>
 
-    <div v-if="!run.steps.length" class="py-4 text-center text-sm text-ink-gray-5">
+    <div
+      v-if="!run.steps.length"
+      class="py-4 text-center text-sm text-ink-gray-5"
+    >
       {{ __('It stopped before running anything.') }}
     </div>
 
@@ -40,13 +50,20 @@
       class="border-b border-outline-gray-1 py-2 last:border-0"
     >
       <div class="flex items-center gap-2">
-        <component :is="iconFor(s.node_type)" class="h-4 w-4 shrink-0 text-ink-gray-6" />
-        <span class="text-sm font-medium text-ink-gray-8">{{ s.node_type }}</span>
+        <component
+          :is="iconFor(s.node_type)"
+          class="h-4 w-4 shrink-0 text-ink-gray-6"
+        />
+        <span class="text-sm font-medium text-ink-gray-8">{{
+          s.node_type
+        }}</span>
         <span class="text-xs text-ink-gray-5">{{ s.node_id }}</span>
         <Badge :theme="stepTheme(s.status)" variant="subtle" class="ml-1">
           {{ s.status }}
         </Badge>
-        <span class="ml-auto text-xs text-ink-gray-5">{{ s.duration_ms }}ms</span>
+        <span class="ml-auto text-xs text-ink-gray-5"
+          >{{ s.duration_ms }}ms</span
+        >
       </div>
 
       <div v-if="summarise(s)" class="mt-1 pl-6 text-sm text-ink-gray-7">
@@ -57,7 +74,7 @@
         v-for="(l, j) in logsFor(s.node_id)"
         :key="j"
         class="mt-1 pl-6 text-xs"
-        :class="l.status === 'Success' ? 'text-ink-gray-5' : 'text-amber-700'"
+        :class="l.status === 'Success' ? 'text-ink-gray-5' : 'text-ink-amber-3'"
       >
         <span class="font-mono">{{ l.action }}</span>
         <span v-if="l.decision"> · {{ l.decision }}</span>
@@ -66,18 +83,28 @@
       </div>
 
       <details v-if="s.output && s.output !== '{}'" class="mt-1 pl-6">
-        <summary class="cursor-pointer text-xs text-ink-gray-5">{{ __('Raw') }}</summary>
-        <pre class="mt-1 overflow-x-auto rounded bg-surface-gray-2 p-2 text-xs">{{ s.output }}</pre>
+        <summary class="cursor-pointer text-xs text-ink-gray-5">
+          {{ __('Raw') }}
+        </summary>
+        <pre
+          class="mt-1 overflow-x-auto rounded bg-surface-gray-2 p-2 text-xs"
+          >{{ s.output }}</pre
+        >
       </details>
     </div>
 
-    <div v-if="unattached.length" class="mt-3 border-t border-outline-gray-1 pt-2">
-      <div class="mb-1 text-xs font-medium text-ink-gray-5">{{ __('Also recorded') }}</div>
+    <div
+      v-if="unattached.length"
+      class="mt-3 border-t border-outline-gray-1 pt-2"
+    >
+      <div class="mb-1 text-xs font-medium text-ink-gray-5">
+        {{ __('Also recorded') }}
+      </div>
       <div
         v-for="(l, i) in unattached"
         :key="i"
         class="text-xs"
-        :class="l.status === 'Success' ? 'text-ink-gray-5' : 'text-amber-700'"
+        :class="l.status === 'Success' ? 'text-ink-gray-5' : 'text-ink-amber-3'"
       >
         <span class="font-mono">{{ l.action }}</span>
         <span v-if="l.reason"> — {{ l.reason }}</span>
@@ -104,19 +131,26 @@ const props = defineProps({ run: { type: Object, required: true } })
 defineEmits(['back'])
 
 const statusTheme = (s) =>
-  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[s] || 'blue'
+  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[
+    s
+  ] || 'blue'
 const stepTheme = (s) =>
   ({ Success: 'green', Failed: 'red', Skipped: 'orange' })[s] || 'gray'
 
 const waitingLabel = computed(
   () =>
-    ({ Reply: __('a reply'), Approval: __('an approval'), Timer: __('a delay') })[
-      props.run.waiting_for
-    ] || __('something'),
+    ({
+      Reply: __('a reply'),
+      Approval: __('an approval'),
+      Timer: __('a delay'),
+    })[props.run.waiting_for] || __('something'),
 )
 
-const logsFor = (nodeId) => (props.run.log || []).filter((l) => l.node_id === nodeId)
-const unattached = computed(() => (props.run.log || []).filter((l) => !l.node_id))
+const logsFor = (nodeId) =>
+  (props.run.log || []).filter((l) => l.node_id === nodeId)
+const unattached = computed(() =>
+  (props.run.log || []).filter((l) => !l.node_id),
+)
 
 /** The one line worth reading, pulled out of the step's JSON. */
 function summarise(step) {

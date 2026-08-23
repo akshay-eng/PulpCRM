@@ -51,8 +51,12 @@
           :placeholder="__('Pick a value')"
           @update:model-value="node.config[f.field] = $event?.value ?? $event"
         />
-        <FormControl v-else v-model="node.config[f.field]" type="text"
-          :placeholder="f.placeholder" />
+        <FormControl
+          v-else
+          v-model="node.config[f.field]"
+          type="text"
+          :placeholder="f.placeholder"
+        />
       </div>
       <KeyValueEditor
         v-else-if="f.type === 'keyvalue'"
@@ -128,17 +132,26 @@
         :placeholder="f.placeholder"
       />
 
-      <div v-if="f.help" class="mt-1 text-xs text-ink-gray-5">{{ __(f.help) }}</div>
-      <div v-if="f.required && isBlank(node.config[f.field])" class="mt-1 text-xs text-amber-600">
+      <div v-if="f.help" class="mt-1 text-xs text-ink-gray-5">
+        {{ __(f.help) }}
+      </div>
+      <div
+        v-if="f.required && isBlank(node.config[f.field])"
+        class="mt-1 text-xs text-ink-amber-3"
+      >
         {{ __('Required') }}
       </div>
     </div>
 
     <details v-if="errorSchema.length" class="mt-4">
-      <summary class="cursor-pointer text-p-sm text-ink-gray-5">{{ __('If it fails') }}</summary>
+      <summary class="cursor-pointer text-p-sm text-ink-gray-5">
+        {{ __('If it fails') }}
+      </summary>
       <div class="mt-2">
         <div v-for="f in errorSchema" :key="f.field" class="mb-3">
-          <template v-if="!f.depends_on || node[f.depends_on] === f.depends_value">
+          <template
+            v-if="!f.depends_on || node[f.depends_on] === f.depends_value"
+          >
             <FormControl
               v-if="f.type === 'select'"
               v-model="node[f.field]"
@@ -165,7 +178,9 @@
     </details>
 
     <details class="mt-4">
-      <summary class="cursor-pointer text-p-sm text-ink-gray-5">{{ __('Advanced') }}</summary>
+      <summary class="cursor-pointer text-p-sm text-ink-gray-5">
+        {{ __('Advanced') }}
+      </summary>
       <div class="mt-2">
         <FormControl
           v-model="node.save_as"
@@ -175,11 +190,13 @@
           :placeholder="__('e.g. answer')"
         />
         <div class="text-xs text-ink-gray-5">
-          {{ __('Later nodes can read it as vars.<name>.') }}
+          {{ __('Later nodes can read it as vars.your_variable.') }}
         </div>
       </div>
       <div class="mt-3">
-        <div class="mb-1 text-xs text-ink-gray-5">{{ __('Raw config (JSON)') }}</div>
+        <div class="mb-1 text-xs text-ink-gray-5">
+          {{ __('Raw config (JSON)') }}
+        </div>
         <textarea
           :value="rawText"
           rows="6"
@@ -187,7 +204,9 @@
           class="w-full rounded-md border border-outline-gray-2 bg-surface-gray-1 p-2 font-mono text-xs text-ink-gray-8 focus:border-outline-gray-4 focus:outline-none"
           @input="onRawInput"
         ></textarea>
-        <div v-if="rawError" class="mt-1 text-xs text-red-600">{{ rawError }}</div>
+        <div v-if="rawError" class="mt-1 text-xs text-red-600">
+          {{ rawError }}
+        </div>
       </div>
     </details>
   </div>
@@ -246,7 +265,8 @@ watch(
   () => props.triggerDoctype,
   async (doctype) => {
     if (!doctype) return (targetFields.value = [])
-    if (fieldCache.has(doctype)) return (targetFields.value = fieldCache.get(doctype))
+    if (fieldCache.has(doctype))
+      return (targetFields.value = fieldCache.get(doctype))
     try {
       const rows = await call('baton.api.workflow.get_fields', { doctype })
       fieldCache.set(doctype, rows)

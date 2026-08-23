@@ -166,6 +166,78 @@ class TestCredentialTester(FrappeTestCase):
         self.assertIn("401", out["message"])
 
 
+class TestBrowserCredentials(FrappeTestCase):
+    def test_browser_key_overrides_the_stored_key_for_one_request(self):
+        from unittest.mock import MagicMock, patch
+
+        model = _model("T Browser Credential")
+        adapter = MagicMock(return_value="OK")
+        credential = frappe.as_json(
+            {
+                "model_name": model.name,
+                "api_key": "sk-browser-only",
+            }
+        )
+
+        with patch.dict(llm.ADAPTERS, {"OpenAI Compatible": adapter}):
+            with llm.use_client_credential(credential):
+                llm.chat(
+                    [{"role": "user", "content": "hi"}],
+                    allow_while_off=True,
+                )
+
+        self.assertEqual(adapter.call_args.args[1], "sk-browser-only")
+        self.assertEqual(model.get_password("api_key"), "sk-test")
+        self.assertIsNone(llm.client_credential_model())
+
+    def test_model_metadata_endpoint_does_not_store_a_posted_key(self):
+        from baton.api.connections import save_model
+
+        name = "T Browser Metadata Only"
+        if frappe.db.exists("Baton AI Model", name):
+            frappe.delete_doc(
+                "Baton AI Model", name, force=True, ignore_permissions=True
+            )
+
+        save_model(
+            model_name=name,
+            api_key="must-not-reach-the-database",
+            provider="OpenAI Compatible",
+            model="test-model",
+            purpose="General",
+            enabled=1,
+        )
+        self.assertFalse(
+            frappe.get_doc("Baton AI Model", name).get_password(
+                "api_key", raise_exception=False
+            )
+        )
+        frappe.delete_doc(
+            "Baton AI Model", name, force=True, ignore_permissions=True
+        )
+        frappe.db.commit()
+
+    def test_saving_metadata_removes_a_legacy_server_key(self):
+        from baton.api.connections import save_model
+
+        model = _model("T Legacy Server Key")
+        self.assertEqual(model.get_password("api_key"), "sk-test")
+
+        save_model(
+            model_name=model.name,
+            provider=model.provider,
+            model=model.model,
+            purpose=model.purpose,
+            enabled=1,
+        )
+
+        self.assertFalse(
+            frappe.get_doc("Baton AI Model", model.name).get_password(
+                "api_key", raise_exception=False
+            )
+        )
+
+
 def _model(name):
     if frappe.db.exists("Baton AI Model", name):
         frappe.delete_doc("Baton AI Model", name, force=True, ignore_permissions=True)

@@ -1,10 +1,12 @@
 <template>
   <LayoutHeader>
     <template #left-header>
-      <Breadcrumbs :items="[
-        { label: __('AI Automation'), route: { name: 'Automation' } },
-        { label: __('Workflows'), route: { name: 'Workflows' } },
-      ]" />
+      <Breadcrumbs
+        :items="[
+          { label: __('AI Automation'), route: { name: 'Automation' } },
+          { label: __('Workflows'), route: { name: 'Workflows' } },
+        ]"
+      />
       <span class="mx-1 text-ink-gray-4">/</span>
       <input
         v-model="nameDraft"
@@ -19,19 +21,30 @@
       </span>
     </template>
     <template #right-header>
-      <Button variant="ghost" :disabled="!history.length" :title="__('Undo')" @click="undo">
+      <Button
+        variant="ghost"
+        :disabled="!history.length"
+        :title="__('Undo')"
+        @click="undo"
+      >
         <template #icon><LucideUndo2 class="h-4 w-4" /></template>
       </Button>
       <Button variant="ghost" :title="__('Tidy up the layout')" @click="tidy">
         <template #icon><LucideLayoutGrid class="h-4 w-4" /></template>
       </Button>
+      <AICredentialPicker v-if="hasAINodes" v-model="credentialId" compact />
       <Button :label="__('See Runs')" @click="showRuns = true">
         <template #prefix><LucideHistory class="h-4 w-4" /></template>
       </Button>
       <Button :label="__('Test')" :loading="testing" @click="runTest">
         <template #prefix><LucidePlay class="h-4 w-4" /></template>
       </Button>
-      <Button variant="solid" :loading="saving" :label="__('Save')" @click="save" />
+      <Button
+        variant="solid"
+        :loading="saving"
+        :label="__('Save')"
+        @click="save"
+      />
       <Button
         :variant="wf.enabled ? 'subtle' : 'outline'"
         :label="wf.enabled ? __('Deactivate') : __('Activate')"
@@ -45,23 +58,33 @@
 
     <div class="relative flex-1" @dragover.prevent @drop="onDrop">
       <div class="absolute left-4 top-4 z-10 w-[260px] space-y-2">
-        <TriggerPanel :triggers="wf.triggers" :doctypes="doctypes" :events="events" />
+        <TriggerPanel
+          :triggers="wf.triggers"
+          :doctypes="doctypes"
+          :events="events"
+        />
       </div>
 
       <div
         v-if="problems.length"
         class="absolute bottom-4 left-4 z-10 max-w-[380px] rounded-lg border border-outline-gray-2 bg-surface-white p-3 shadow-sm"
       >
-        <div class="mb-1 text-xs font-medium text-ink-gray-6">{{ __('Issues') }}</div>
+        <div class="mb-1 text-xs font-medium text-ink-gray-6">
+          {{ __('Issues') }}
+        </div>
         <div
           v-for="(p, i) in problems"
           :key="i"
           class="flex items-start gap-1.5 py-0.5 text-xs"
-          :class="p.level === 'error' ? 'text-red-600' : 'text-amber-600'"
+          :class="p.level === 'error' ? 'text-ink-red-4' : 'text-ink-amber-3'"
         >
           <span class="shrink-0">{{ p.level === 'error' ? '✕' : '!' }}</span>
           <span>
-            <button v-if="p.node_id" class="underline" @click="selectedId = p.node_id">
+            <button
+              v-if="p.node_id"
+              class="underline"
+              @click="selectedId = p.node_id"
+            >
               {{ labelOf(p.node_id) }}
             </button>
             {{ p.message }}
@@ -78,17 +101,24 @@
         :connection-radius="30"
         :is-valid-connection="isValidConnection"
         fit-view-on-init
-        class="h-full w-full"
+        class="pulp-flow h-full w-full"
         @node-click="onNodeClick"
         @node-drag-stop="onNodeDragStop"
         @connect="onConnect"
         @pane-click="closePanel"
       >
-        <Background pattern-color="#cbd5e1" :gap="22" :size="1.4" />
+        <Background
+          pattern-color="var(--outline-gray-2)"
+          :gap="22"
+          :size="1.4"
+        />
         <Controls position="bottom-right" />
         <template #node-baton="props">
-          <BatonNode :data="props.data" :selected="props.id === selectedId"
-            :branch-labels="branchLabels" />
+          <BatonNode
+            :data="props.data"
+            :selected="props.id === selectedId"
+            :branch-labels="branchLabels"
+          />
         </template>
         <template #edge-baton="props">
           <BatonEdge v-bind="props" @remove="removeEdge" />
@@ -100,17 +130,35 @@
       v-if="selected"
       class="flex w-[340px] shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white"
     >
-      <div class="flex items-center justify-between border-b border-outline-gray-2 px-4 py-3">
+      <div
+        class="flex items-center justify-between border-b border-outline-gray-2 px-4 py-3"
+      >
         <div class="text-base font-medium text-ink-gray-8">
           {{ selected.label || selected.node_type }}
         </div>
-        <button class="text-ink-gray-5 hover:text-ink-gray-8" @click="closePanel">
+        <button
+          class="text-ink-gray-5 hover:text-ink-gray-8"
+          @click="closePanel"
+        >
           <LucideX class="h-4 w-4" />
         </button>
       </div>
 
       <div class="flex-1 overflow-y-auto px-4 py-3">
-        <NodeConfigForm :node="selected" :schemas="schemas" :doctypes="doctypes" :agents="agents"
+        <div
+          v-if="isAINode(selected)"
+          class="mb-4 rounded-md border border-outline-gray-2 bg-surface-gray-1 p-3"
+        >
+          <AICredentialPicker
+            v-model="credentialId"
+            :label="__('Run this workflow with')"
+          />
+        </div>
+        <NodeConfigForm
+          :node="selected"
+          :schemas="schemas"
+          :doctypes="doctypes"
+          :agents="agents"
           :services="services"
           :availabilities="availabilities"
           :users="users"
@@ -130,12 +178,18 @@
     </div>
   </div>
 
-  <Dialog v-model="showRuns" :options="{ title: __('Workflow runs'), size: '3xl' }">
+  <Dialog
+    v-model="showRuns"
+    :options="{ title: __('Workflow runs'), size: '3xl' }"
+  >
     <template #body-content>
       <RunDetail v-if="openRun" :run="openRun" @back="closeRun" />
 
       <template v-else>
-        <div v-if="!runs.length" class="py-6 text-center text-sm text-ink-gray-5">
+        <div
+          v-if="!runs.length"
+          class="py-6 text-center text-sm text-ink-gray-5"
+        >
           {{ __('No runs yet. Hit Test to try it.') }}
         </div>
         <button
@@ -144,8 +198,12 @@
           class="flex w-full items-center gap-2 border-b border-outline-gray-1 py-2 text-left last:border-0 hover:bg-surface-gray-1"
           @click="openRunDetail(r.name)"
         >
-          <Badge :theme="statusTheme(r.status)" variant="subtle">{{ r.status }}</Badge>
-          <span class="text-sm text-ink-gray-7">{{ r.reference_name || '—' }}</span>
+          <Badge :theme="statusTheme(r.status)" variant="subtle">{{
+            r.status
+          }}</Badge>
+          <span class="text-sm text-ink-gray-7">{{
+            r.reference_name || '—'
+          }}</span>
           <span class="ml-auto text-xs text-ink-gray-5">{{ r.creation }}</span>
           <LucideChevronRight class="h-4 w-4 text-ink-gray-4" />
         </button>
@@ -177,12 +235,20 @@ import LucideHistory from '~icons/lucide/history'
 import LucideChevronRight from '~icons/lucide/chevron-right'
 import LucideUndo2 from '~icons/lucide/undo-2'
 import LucideLayoutGrid from '~icons/lucide/layout-grid'
+import AICredentialPicker from '@/components/AI/AICredentialPicker.vue'
+import { useAICredentials } from '@/stores/aiCredentials'
 
 const route = useRoute()
 const router = useRouter()
 const { screenToFlowCoordinate, fitView } = useVueFlow()
 
-const wf = ref({ workflow_name: '', kind: 'Workflow', enabled: 0, nodes: [], triggers: [] })
+const wf = ref({
+  workflow_name: '',
+  kind: 'Workflow',
+  enabled: 0,
+  nodes: [],
+  triggers: [],
+})
 const catalog = ref([])
 const schemas = ref({})
 const doctypes = ref([])
@@ -204,6 +270,15 @@ const showRuns = ref(false)
 const flowNodes = ref([])
 const flowEdges = ref([])
 const nameDraft = ref('')
+const credentialContext = computed(
+  () => `workflow:${wf.value.name || route.params.workflowId}`,
+)
+const { getSelection, setSelection, isReady, requestCredential } =
+  useAICredentials()
+const credentialId = ref(getSelection(credentialContext.value))
+const isAINode = (node) =>
+  ['AI Agent', 'AI Conversation'].includes(node?.node_type)
+const hasAINodes = computed(() => wf.value.nodes.some(isAINode))
 
 /**
  * workflow_name is the document name, so renaming has to go through
@@ -236,13 +311,17 @@ const selected = computed(
 )
 // The doctype the condition picker offers fields from.
 const triggerDoctype = computed(
-  () => (wf.value.triggers || []).find((t) => t.trigger_doctype)?.trigger_doctype || '',
+  () =>
+    (wf.value.triggers || []).find((t) => t.trigger_doctype)?.trigger_doctype ||
+    '',
 )
 const labelOf = (id) =>
   wf.value.nodes.find((n) => n.node_id === id)?.label || id
 
 const statusTheme = (s) =>
-  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[s] || 'blue'
+  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[
+    s
+  ] || 'blue'
 
 /**
  * Give every node a place, and rescue graphs that have all of them in one.
@@ -259,7 +338,8 @@ const COL = 300
 
 function layout(nodes) {
   const byId = Object.fromEntries(nodes.map((n) => [n.node_id, n]))
-  const start = (nodes.find((n) => n.node_type === 'Trigger') || nodes[0])?.node_id
+  const start = (nodes.find((n) => n.node_type === 'Trigger') || nodes[0])
+    ?.node_id
   const placed = new Set()
   const queue = start ? [[start, 0, 0]] : []
   // Depth alone is not enough: two branches at the same depth would overlap, so
@@ -279,7 +359,8 @@ function layout(nodes) {
     node.position_x = 420 + column * COL
     node.position_y = 80 + depth * ROW
     if (node.next_node) queue.push([node.next_node, depth + 1, column])
-    if (node.next_node_alt) queue.push([node.next_node_alt, depth + 1, column + 1])
+    if (node.next_node_alt)
+      queue.push([node.next_node_alt, depth + 1, column + 1])
   }
 
   let orphan = 0
@@ -302,7 +383,9 @@ function autoPosition() {
     }
     return
   }
-  const spots = new Set(nodes.map((n) => `${n.position_x || 0},${n.position_y || 0}`))
+  const spots = new Set(
+    nodes.map((n) => `${n.position_x || 0},${n.position_y || 0}`),
+  )
   if (spots.size === nodes.length) return
   layout(nodes)
 }
@@ -336,7 +419,9 @@ function syncGraph() {
         source: n.node_id,
         target: n.next_node,
         sourceHandle: branchLabels.value[n.node_type] ? 'true' : null,
-        style: { stroke: branchLabels.value[n.node_type] ? '#16a34a' : '#94a3b8' },
+        style: {
+          stroke: branchLabels.value[n.node_type] ? '#16a34a' : '#94a3b8',
+        },
         ...base,
       })
     }
@@ -367,7 +452,9 @@ const history = ref([])
 const HISTORY_LIMIT = 30
 
 function snapshot() {
-  history.value.push(JSON.stringify({ nodes: wf.value.nodes, triggers: wf.value.triggers }))
+  history.value.push(
+    JSON.stringify({ nodes: wf.value.nodes, triggers: wf.value.triggers }),
+  )
   if (history.value.length > HISTORY_LIMIT) history.value.shift()
 }
 
@@ -382,8 +469,9 @@ function undo() {
 }
 
 function onKey(event) {
-  const typing = /^(INPUT|TEXTAREA)$/.test(event.target?.tagName)
-    || event.target?.isContentEditable
+  const typing =
+    /^(INPUT|TEXTAREA)$/.test(event.target?.tagName) ||
+    event.target?.isContentEditable
   if (typing) return
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
     event.preventDefault()
@@ -397,7 +485,11 @@ function validate() {
   validateTimer = setTimeout(async () => {
     try {
       problems.value = await call('baton.api.workflow.validate_workflow', {
-        data: JSON.stringify({ nodes: wf.value.nodes, triggers: wf.value.triggers, kind: wf.value.kind }),
+        data: JSON.stringify({
+          nodes: wf.value.nodes,
+          triggers: wf.value.triggers,
+          kind: wf.value.kind,
+        }),
       })
     } catch (e) {
       problems.value = []
@@ -411,7 +503,10 @@ watch(() => wf.value.nodes, validate, { deep: true })
 // on the right slides under the panel and stops being clickable.
 watch(
   () => Boolean(selected.value),
-  () => nextTick(() => setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 60)),
+  () =>
+    nextTick(() =>
+      setTimeout(() => fitView({ padding: 0.2, duration: 200 }), 60),
+    ),
 )
 
 function onNodeClick({ node }) {
@@ -437,7 +532,8 @@ function isValidConnection({ source, target, sourceHandle }) {
   const tgt = wf.value.nodes.find((n) => n.node_id === target)
   if (!src || !tgt) return false
   if (tgt.node_type === 'Trigger') return false
-  if (!branchLabels.value[src.node_type] && sourceHandle === 'false') return false
+  if (!branchLabels.value[src.node_type] && sourceHandle === 'false')
+    return false
   return true
 }
 
@@ -464,7 +560,10 @@ function onDrop(event) {
   const raw = event.dataTransfer.getData('application/baton-node')
   if (!raw) return
   const action = JSON.parse(raw)
-  const position = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+  const position = screenToFlowCoordinate({
+    x: event.clientX,
+    y: event.clientY,
+  })
 
   const edgeEl = event.target.closest?.('.vue-flow__edge')
   const edgeId = edgeEl?.dataset?.id || edgeEl?.getAttribute?.('data-id')
@@ -485,8 +584,10 @@ function newNode(action, position) {
     // Palette entries carry a preset -- "Move the deal to a stage" arrives with
     // the doctype and field already chosen. Half the configuration of the most
     // common steps is simply not asked for.
-    config: { ...(action.config || {}),
-      ...(action.doctype ? { for_doctype: action.doctype } : {}) },
+    config: {
+      ...(action.config || {}),
+      ...(action.doctype ? { for_doctype: action.doctype } : {}),
+    },
     save_as: null,
     position_x: Math.round(position?.x ?? 420),
     position_y: Math.round(position?.y ?? 80),
@@ -499,10 +600,12 @@ function tailNode() {
   // A selected node with a free output is what the user is looking at, so it is
   // the most likely thing they meant to continue from.
   const chosen = selected.value
-  if (chosen && !chosen.next_node && chosen.node_type !== 'Trigger') return chosen
+  if (chosen && !chosen.next_node && chosen.node_type !== 'Trigger')
+    return chosen
 
-  let cur = (wf.value.nodes.find((n) => n.node_type === 'Trigger')
-    || wf.value.nodes[0])?.node_id
+  let cur = (
+    wf.value.nodes.find((n) => n.node_type === 'Trigger') || wf.value.nodes[0]
+  )?.node_id
   const seen = new Set()
   while (cur && byId[cur] && !seen.has(cur)) {
     seen.add(cur)
@@ -524,9 +627,10 @@ function nudgeClear(node) {
   let guard = 0
   while (guard++ < 40) {
     const hit = wf.value.nodes.some(
-      (n) => n.node_id !== node.node_id
-        && Math.abs((n.position_x || 0) - node.position_x) < W
-        && Math.abs((n.position_y || 0) - node.position_y) < H,
+      (n) =>
+        n.node_id !== node.node_id &&
+        Math.abs((n.position_x || 0) - node.position_x) < W &&
+        Math.abs((n.position_y || 0) - node.position_y) < H,
     )
     if (!hit) return
     node.position_y += 60
@@ -549,7 +653,8 @@ function addNode(action, position) {
   // Wire it on. A step dropped onto the canvas that nothing points at is a step
   // that will never run -- and the only clue was a warning in the Issues box.
   if (from) {
-    if (branchLabels.value[from.node_type] && from.next_node) from.next_node_alt = node.node_id
+    if (branchLabels.value[from.node_type] && from.next_node)
+      from.next_node_alt = node.node_id
     else from.next_node = node.node_id
   }
 
@@ -616,7 +721,10 @@ async function save() {
   saving.value = true
   try {
     wf.value = await call('baton.api.workflow.save_workflow', {
-      data: JSON.stringify({ ...wf.value, name: wf.value.name || route.params.workflowId }),
+      data: JSON.stringify({
+        ...wf.value,
+        name: wf.value.name || route.params.workflowId,
+      }),
     })
     wf.value.triggers = wf.value.triggers || []
     wf.value.nodes.forEach((n) => (n.config = n.config || {}))
@@ -641,9 +749,18 @@ async function toggleEnabled() {
 
 async function runTest() {
   if (!(await save())) return
+  if (hasAINodes.value && !isReady(credentialId.value)) {
+    toast.warning(__('Choose an AI key configured in this browser first.'))
+    return
+  }
   testing.value = true
   try {
-    const res = await call('baton.api.workflow.test_run', { name: route.params.workflowId })
+    const res = await call('baton.api.workflow.test_run', {
+      name: route.params.workflowId,
+      credential: hasAINodes.value
+        ? requestCredential(credentialId.value)
+        : undefined,
+    })
     if (!res.ok) return toast.warning(res.message)
     const r = res.run
     toast[r.status === 'Completed' ? 'success' : 'error'](
@@ -678,6 +795,7 @@ watch(showRuns, (v) => {
   if (v) loadRuns()
   else closeRun()
 })
+watch(credentialId, (value) => setSelection(credentialContext.value, value))
 onMounted(() => {
   load()
   window.addEventListener('keydown', onKey)

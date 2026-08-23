@@ -21,7 +21,7 @@ import frappe
 from frappe import _
 
 from baton.audit import log_action
-from baton.llm import chat_json
+from baton.llm import chat_json, use_client_credential
 
 # What the assistant is allowed to read. Everything else is invisible to it --
 # including User, which would otherwise be an easy way to enumerate staff.
@@ -74,8 +74,10 @@ Rules:
 - For "recent" or "latest" use order_by on `modified desc` or `creation desc`.
 - For date ranges use ["between", ["YYYY-MM-DD", "YYYY-MM-DD"]].
 - Always include `name` in fields.
-- If the question cannot be answered from this schema, set doctype to null and
-  put the reason in explanation.
+- For greetings or small talk, set doctype to null and reply helpfully in
+  explanation, inviting the user to ask about their CRM data.
+- If a request cannot be answered from this schema, set doctype to null and put
+  a clear, friendly reason in explanation.
 
 Schema:
 {schema}
@@ -86,7 +88,7 @@ Today is {today}."""
 def _validate(spec):
     dt = spec.get("doctype")
     if not dt:
-        frappe.throw(spec.get("explanation") or _("That cannot be answered from the CRM schema."))
+        return None, [], {}, None, 0
     if dt not in ALLOWED_DOCTYPES:
         frappe.throw(_("The assistant may not read {0}.").format(dt))
 
@@ -114,7 +116,7 @@ def _validate(spec):
 
 
 @frappe.whitelist()
-def ask(question, session=None):
+def ask(question, session=None, credential=None):
     """Answer `question` with real rows. Creates the session if absent."""
     question = (question or "").strip()
     if not question:
@@ -136,20 +138,51 @@ def ask(question, session=None):
         {"doctype": "Baton Chat Message", "session": session, "role": "user", "content": question}
     ).insert(ignore_permissions=True)
 
-    spec = chat_json(
-        [
-            {
-                "role": "system",
-                "content": SYSTEM.format(
-                    schema=_catalog(), today=frappe.utils.today()
-                ),
-            },
-            {"role": "user", "content": question},
-        ],
-        purpose="Conversation",
-    )
+    with use_client_credential(credential):
+        spec = chat_json(
+            [
+                {
+                    "role": "system",
+                    "content": SYSTEM.format(
+                        schema=_catalog(), today=frappe.utils.today()
+                    ),
+                },
+                {"role": "user", "content": question},
+            ],
+            purpose="Conversation",
+        )
 
     doctype, fields, filters, order_by, limit = _validate(spec)
+
+    if not doctype:
+        answer = spec.get("explanation") or _(
+            "I can help you explore your leads, deals, contacts, tasks, and CRM activity."
+        )
+        frappe.get_doc(
+            {
+                "doctype": "Baton Chat Message",
+                "session": session,
+                "role": "assistant",
+                "content": answer,
+                "row_count": 0,
+            }
+        ).insert(ignore_permissions=True)
+        log_action(
+            "chat.answer_without_query",
+            actor_type="AI_AGENT",
+            input={"question": question},
+            decision="ANSWER",
+            reason=answer[:400],
+        )
+        return {
+            "session": session,
+            "answer": answer,
+            "doctype": None,
+            "fields": [],
+            "rows": [],
+            "row_count": 0,
+            "query": None,
+        }
 
     # get_list, not get_all: this MUST run with the caller's permissions.
     rows = frappe.get_list(
