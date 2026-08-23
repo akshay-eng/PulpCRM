@@ -396,8 +396,12 @@ def _send_email(ctx, args):
     to, is_fixed = _recipient(ctx, "email", "address", ("email_id", "email"))
 
     if is_fixed:
-        frappe.sendmail(recipients=[to], subject=subject[:200], message=body[:20000],
-                        sender=sender)
+        try:
+            frappe.flags.baton_ai_email = True
+            frappe.sendmail(recipients=[to], subject=subject[:200], message=body[:20000],
+                            sender=sender)
+        finally:
+            frappe.flags.baton_ai_email = False
         log_action("bot.email", actor_type="AI_AGENT", workflow_run=ctx["run"].name,
                    bot=ctx["bot"].name,
                    output={"to": to, "from": sender, "fixed_recipient": True})
@@ -412,8 +416,12 @@ def _send_email(ctx, args):
 
     if mode == "Draft":
         return {"sent": False, "refused": "Email is in Draft mode; a human has to approve it."}
-    frappe.sendmail(recipients=[to], subject=subject[:200], message=body[:20000],
-                    sender=sender, reference_doctype=doc.doctype, reference_name=doc.name)
+    try:
+        frappe.flags.baton_ai_email = True
+        frappe.sendmail(recipients=[to], subject=subject[:200], message=body[:20000],
+                        sender=sender, reference_doctype=doc.doctype, reference_name=doc.name)
+    finally:
+        frappe.flags.baton_ai_email = False
     log_action("bot.email", actor_type="AI_AGENT", reference_doctype=doc.doctype,
                reference_name=doc.name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,
                output={"to": to})

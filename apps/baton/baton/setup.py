@@ -248,8 +248,15 @@ def install_custom_fields():
                     "fieldname": "baton_author",
                     "label": "Author",
                     "fieldtype": "Select",
-                    "options": "contact\nhuman\nai",
-                    "default": "contact",
+                    "options": "\ncontact\nhuman\nai",
+                    # No default. Document._set_defaults() applies field defaults
+                    # BEFORE before_insert hooks run, so a default here made
+                    # tag_author's "if already set, don't overwrite" guard see a
+                    # truthy value before it ever computed the real one -- every
+                    # message silently came out "contact" regardless of who
+                    # actually sent it. This field must only ever be set by
+                    # tag_author (or explicitly by the engine/agent), never by a
+                    # field default.
                     "insert_after": "content_type",
                     "in_standard_filter": 1,
                     "description": "Who composed this message. 'ai' means Baton's agent wrote it.",
@@ -268,6 +275,41 @@ def install_custom_fields():
     )
     frappe.db.commit()
     print("  + baton_author on WhatsApp Message")
+
+    create_custom_fields(
+        {
+            "Communication": [
+                {
+                    "fieldname": "baton_author",
+                    "label": "Author",
+                    "fieldtype": "Select",
+                    "options": "\ncontact\nhuman\nai",
+                    # No default. Document._set_defaults() applies field defaults
+                    # BEFORE before_insert hooks run, so a default here made
+                    # tag_author's "if already set, don't overwrite" guard see a
+                    # truthy value before it ever computed the real one -- every
+                    # message silently came out "contact" regardless of who
+                    # actually sent it. This field must only ever be set by
+                    # tag_author (or explicitly by the engine/agent), never by a
+                    # field default.
+                    "insert_after": "sent_or_received",
+                    "in_standard_filter": 1,
+                    "description": "Who composed this message. 'ai' means Baton's agent wrote it.",
+                },
+                {
+                    "fieldname": "baton_approval",
+                    "label": "Approved via",
+                    "fieldtype": "Link",
+                    "options": "Baton Approval",
+                    "insert_after": "baton_author",
+                    "read_only": 1,
+                },
+            ]
+        },
+        ignore_validate=True,
+    )
+    frappe.db.commit()
+    print("  + baton_author on Communication")
 
 
 def install_all():

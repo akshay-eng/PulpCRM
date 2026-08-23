@@ -829,13 +829,17 @@ def _execute(node, context, run, phase="enter"):
                 return {"drafted": approval.name}, node.next_node
 
         recipient = _render(cfg.get("to"), context)
-        frappe.sendmail(
-            recipients=[recipient],
-            subject=_render(cfg.get("subject"), context) or "(no subject)",
-            message=_render(cfg.get("message"), context) or "",
-            reference_doctype=doc.doctype if doc else None,
-            reference_name=doc.name if doc else None,
-        )
+        try:
+            frappe.flags.baton_ai_email = True
+            frappe.sendmail(
+                recipients=[recipient],
+                subject=_render(cfg.get("subject"), context) or "(no subject)",
+                message=_render(cfg.get("message"), context) or "",
+                reference_doctype=doc.doctype if doc else None,
+                reference_name=doc.name if doc else None,
+            )
+        finally:
+            frappe.flags.baton_ai_email = False
         log_action("email.send", reference_doctype=doc.doctype if doc else None,
                    reference_name=doc.name if doc else None, workflow_run=run.name,
                    node_id=node.node_id, idempotency_key=key, output={"to": recipient})

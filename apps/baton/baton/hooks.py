@@ -47,6 +47,10 @@ doc_events = {
         "validate": "baton.overrides.whatsapp_message.keep_baton_reference",
         "after_insert": "baton.api.whatsapp.on_message",
     },
+    "Communication": {
+        "before_insert": "baton.api.email_inbound.tag_author",
+        "after_insert": "baton.api.email_inbound.on_communication",
+    },
 }
 
 scheduler_events = {
