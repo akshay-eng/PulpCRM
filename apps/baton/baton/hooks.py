@@ -69,6 +69,8 @@ scheduler_events = {
             "baton.workflow.scheduler.sweep_stale_runs",
             # Hand back slots a customer never confirmed.
             "baton.scheduling.book.release_expired_holds",
+            # A booked meeting just ended -- ask how it went.
+            "baton.scheduling.followup.tick",
         ],
     },
     "daily": [

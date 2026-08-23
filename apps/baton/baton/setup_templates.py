@@ -166,5 +166,24 @@ def install():
                   "Paid advertising — Google and Meta ad campaigns.",
     )
 
+    _install_bot(
+        "Meeting Follow-up",
+        "Wakes once a booked meeting ends and asks the lead how it went.",
+        "You were woken because a meeting with this lead or deal just ended. "
+        "Ask them directly, in one short message, how it went. When they "
+        "answer, update the record's status and write a note based on what "
+        "they say -- do not just thank them and stop.\n\n"
+        "If they don't answer, that's fine; you'll simply have nothing to "
+        "update. Never invent an outcome they didn't tell you.",
+        "Never say the meeting happened a specific way unless the lead told "
+        "you so themselves.\n"
+        "Keep the opening message under two sentences.\n"
+        "If they ask something out of scope, say so plainly and return to "
+        "asking how the meeting went.",
+        ["crm_leads", "crm_deals", "whatsapp", "email", "crm_notes"],
+        [],  # Driven by scheduling/followup.py:tick, not a trigger of its own.
+        channel="Any",
+    )
+
     frappe.db.commit()
     print("Starter automations ready.")
