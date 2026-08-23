@@ -12,7 +12,7 @@ import json
 import frappe
 from frappe import _
 
-from baton.audit import log_action
+from baton.audit import audit_context, log_action, record_event
 from baton.llm import chat_json, use_client_credential
 
 ALLOWED_DOCTYPES = [
@@ -470,7 +470,7 @@ def _query_result(spec, settings, question):
 
 
 @frappe.whitelist()
-def ask(question, session=None, credential=None):
+def ask(question, session=None, credential=None, dangerously_skip_confirmation=False):
 	"""Plan and answer one chat turn using a browser-supplied credential."""
 	question = str(question or "").strip()
 	if not question:
@@ -531,6 +531,43 @@ def ask(question, session=None, credential=None):
 				row_count=len(rows),
 			)
 			plan["id"] = message.name
+			danger_mode = str(dangerously_skip_confirmation).lower() in ("1", "true", "yes", "on")
+			if danger_mode:
+				with audit_context(
+					source="Ask Pulp",
+					actor_type="HUMAN",
+					reason=plan.get("explanation") or question,
+					danger_mode=True,
+				):
+					results = _execute_pending(plan)
+				plan["status"] = "completed"
+				plan["results"] = results
+				message.content = _(
+					"Done in danger mode. {0} record(s) were processed without confirmation."
+				).format(len(results))
+				message.query_spec = json.dumps(plan, indent=1, default=str)
+				message.row_count = len(results)
+				message.save(ignore_permissions=True)
+				log_action(
+					f"chat.{plan['action']}",
+					actor_type="HUMAN",
+					reference_doctype=plan["doctype"],
+					input={"names": plan.get("names", []), "danger_mode": True},
+					output={"results": results},
+					decision="DANGER_MODE",
+					reason=plan.get("explanation") or question,
+				)
+				result_fields = list(results[0].keys()) if results else []
+				return {
+					"session": session,
+					"answer": message.content,
+					"doctype": results[0].get("doctype", plan["doctype"]) if results else plan["doctype"],
+					"fields": result_fields,
+					"rows": results,
+					"row_count": len(results),
+					"query": None,
+					"pending_action": plan,
+				}
 			log_action(
 				"chat.action_proposed",
 				actor_type="AI_AGENT",
@@ -592,6 +629,12 @@ def _execute_pending(plan):
 		for name in names:
 			frappe.get_doc(doctype, name).check_permission("write")
 			add_assignment({"doctype": doctype, "name": name, "assign_to": [assignee]})
+			record_event(
+				doctype,
+				name,
+				"assigned",
+				changes=[{"field": "_assign", "label": "Assigned to", "before": None, "after": assignee}],
+			)
 			results.append({"doctype": doctype, "name": name, "assigned_to": assignee})
 		return results
 
@@ -604,6 +647,12 @@ def _execute_pending(plan):
 		for name in names:
 			frappe.get_doc(doctype, name).check_permission("read")
 			created = add_comment(doctype, name, comment)
+			record_event(
+				doctype,
+				name,
+				"commented",
+				changes=[{"field": "comment", "label": "Comment", "before": None, "after": comment}],
+			)
 			results.append({"doctype": doctype, "name": name, "comment": created.name})
 		return results
 
@@ -668,7 +717,13 @@ def execute_action(action_id, decision="confirm"):
 		)
 		return {"status": "cancelled", "answer": message.content, "results": []}
 
-	results = _execute_pending(plan)
+	with audit_context(
+		source="Ask Pulp",
+		actor_type="HUMAN",
+		reason=plan.get("explanation"),
+		decision="CONFIRMED",
+	):
+		results = _execute_pending(plan)
 	plan["status"] = "completed"
 	plan["results"] = results
 	message.content = _("Done. {0} record(s) were processed successfully.").format(len(results))

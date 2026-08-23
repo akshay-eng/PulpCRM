@@ -128,6 +128,10 @@ def install():
         autoname="hash",
         sort_field="creation",
         sort_order="DESC",
+        permissions=[
+            {"role": role, "read": 1, "report": 1, "export": 1, "print": 1, "email": 1}
+            for role in ("System Manager", "Sales Manager")
+        ],
     )
 
     frappe.db.commit()

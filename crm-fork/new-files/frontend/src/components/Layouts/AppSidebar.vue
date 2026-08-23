@@ -282,6 +282,7 @@ import {
   IconNote as TablerNote,
   IconPhoneCall as TablerPhoneCall,
   IconLogout as TablerLogout,
+  IconHistory as TablerHistory,
   IconPin as TablerPin,
   IconChevronDown as TablerChevronDown,
 } from '@tabler/icons-vue'
@@ -398,6 +399,7 @@ const navigationSections = computed(() => [
       navLink('Tasks', TablerCircleCheck, 'Tasks'),
       navLink('Notes', TablerNote, 'Notes'),
       navLink('Calls', TablerPhoneCall, 'Call Logs'),
+      navLink('Audit trail', TablerHistory, 'Audit Trail'),
     ],
   },
   {
@@ -459,6 +461,8 @@ function getIcon(routeName, icon) {
       return TablerPhoneCall
     case 'Automation':
       return TablerAutomation
+    case 'Audit Trail':
+      return TablerHistory
     default:
       return TablerPin
   }

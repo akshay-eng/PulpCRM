@@ -39,6 +39,20 @@
         <template #icon><TablerLayoutGrid class="h-4 w-4" /></template>
       </Button>
       <AICredentialPicker v-if="hasAINodes" v-model="credentialId" compact />
+      <Button
+        :label="__('Changes')"
+        @click="
+          router.push({
+            name: 'Audit Trail',
+            query: {
+              doctype: 'Baton Workflow',
+              name: wf.name || route.params.workflowId,
+            },
+          })
+        "
+      >
+        <template #prefix><TablerListDetails class="h-4 w-4" /></template>
+      </Button>
       <Button :label="__('See Runs')" @click="showRuns = true">
         <template #prefix><TablerHistory class="h-4 w-4" /></template>
       </Button>
@@ -240,6 +254,7 @@ import {
   IconX as TablerX,
   IconPlayerPlay as TablerPlay,
   IconHistory as TablerHistory,
+  IconListDetails as TablerListDetails,
   IconChevronRight as TablerChevronRight,
   IconArrowBackUp as TablerUndo,
   IconLayoutGrid as TablerLayoutGrid,

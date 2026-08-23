@@ -166,6 +166,15 @@ class TestConditionsWithoutPython(FrappeTestCase):
         run_workflow(wf.name, doc=lead)
         lead.reload()
         self.assertEqual(lead.status, "Contacted")
+        audit = frappe.get_all(
+            "Baton Action Log",
+            filters={"action": "record.updated", "reference_name": lead.name},
+            fields=["workflow", "output"],
+            order_by="creation desc",
+            limit=1,
+        )[0]
+        self.assertEqual(audit.workflow, wf.name)
+        self.assertEqual(json.loads(audit.output)["source"], "Workflow · T Audit Rules")
         _delete_test_workflows("T Audit")
 
     def test_a_written_expression_still_wins(self):

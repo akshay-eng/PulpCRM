@@ -31,12 +31,37 @@
       </div>
     </div>
 
-    <div class="border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+    <div
+      class="flex items-center gap-2 border-b px-3 py-2"
+      :class="
+        dangerMode
+          ? 'border-outline-red-1 bg-surface-red-1'
+          : 'border-outline-gray-2 bg-surface-gray-1'
+      "
+    >
       <AICredentialPicker
         v-model="credentialId"
         :label="__('Ask with')"
         compact
+        class="min-w-0 flex-1"
       />
+      <button
+        class="flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-medium transition"
+        :class="
+          dangerMode
+            ? 'border-outline-red-2 bg-surface-white text-ink-red-4 hover:bg-surface-red-2'
+            : 'border-outline-gray-2 bg-surface-white text-ink-gray-6 hover:bg-surface-gray-2'
+        "
+        :title="
+          dangerMode
+            ? __('Turn danger mode off')
+            : __('Skip confirmations for record changes')
+        "
+        @click="toggleDangerMode"
+      >
+        <TablerShieldOff class="size-3.5" />
+        {{ dangerMode ? __('Danger mode on') : __('Safe mode') }}
+      </button>
     </div>
 
     <div ref="scroller" class="flex-1 space-y-4 overflow-y-auto px-4 py-4">
@@ -298,19 +323,75 @@
           <TablerArrowUp class="h-4 w-4" />
         </button>
       </div>
-      <div class="mt-1.5 flex items-center gap-1 text-[11px] text-ink-gray-5">
-        <TablerLock class="size-3" />
-        {{ __('Reads with your permissions and asks before making changes.') }}
+      <div
+        class="mt-1.5 flex items-center gap-1 text-[11px]"
+        :class="dangerMode ? 'text-ink-red-4' : 'text-ink-gray-5'"
+      >
+        <TablerAlertTriangle v-if="dangerMode" class="size-3" />
+        <TablerLock v-else class="size-3" />
+        {{
+          dangerMode
+            ? __('Confirmations are skipped. CRM permissions still apply.')
+            : __('Reads with your permissions and asks before making changes.')
+        }}
       </div>
     </div>
   </aside>
+
+  <Dialog
+    v-model="showDangerDialog"
+    :options="{ title: __('Enable danger mode?'), size: 'lg' }"
+  >
+    <template #body-content>
+      <div class="rounded-xl border border-outline-red-1 bg-surface-red-1 p-4">
+        <div class="flex items-start gap-3">
+          <TablerAlertTriangle class="mt-0.5 size-5 shrink-0 text-ink-red-4" />
+          <div>
+            <div class="text-sm font-medium text-ink-gray-9">
+              {{ __('Ask Pulp will make changes immediately') }}
+            </div>
+            <p class="mt-1 text-xs leading-5 text-ink-gray-6">
+              {{
+                __(
+                  'Updates, creates, assignments, comments, and lead conversions will run without the usual review step. Your CRM permissions, action limits, and the audit trail remain enforced.',
+                )
+              }}
+            </p>
+          </div>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-ink-gray-5">
+        {{
+          __(
+            'This preference is stored only in this browser and stays visibly marked while enabled.',
+          )
+        }}
+      </p>
+    </template>
+    <template #actions>
+      <div class="flex justify-end gap-2">
+        <Button
+          :label="__('Keep safe mode')"
+          @click="showDangerDialog = false"
+        />
+        <Button
+          theme="red"
+          variant="solid"
+          :label="__('Enable danger mode')"
+          @click="enableDangerMode"
+        />
+      </div>
+    </template>
+  </Dialog>
 </template>
 
 <script setup>
-import { Button, call } from 'frappe-ui'
+import { Button, Dialog, call } from 'frappe-ui'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useStorage } from '@vueuse/core'
 import {
+  IconAlertTriangle as TablerAlertTriangle,
   IconArrowUp as TablerArrowUp,
   IconCircleCheck as TablerCircleCheck,
   IconCircleX as TablerCircleX,
@@ -320,6 +401,7 @@ import {
   IconLock as TablerLock,
   IconPlus as TablerPlus,
   IconShieldCheck as TablerShieldCheck,
+  IconShieldOff as TablerShieldOff,
   IconSparkles as TablerSparkles,
   IconWand as TablerWand,
   IconX as TablerX,
@@ -338,6 +420,8 @@ const draft = ref('')
 const busy = ref(false)
 const session = ref(null)
 const scroller = ref(null)
+const dangerMode = useStorage('pulpAskDangerMode', false)
+const showDangerDialog = ref(false)
 const { credentials, getSelection, setSelection, isReady, requestCredential } =
   useAICredentials()
 const credentialId = ref(getSelection('ask'))
@@ -391,6 +475,19 @@ function close() {
 function openKeySettings() {
   activeSettingsPage.value = 'AI models'
   showSettings.value = true
+}
+
+function toggleDangerMode() {
+  if (dangerMode.value) {
+    dangerMode.value = false
+    return
+  }
+  showDangerDialog.value = true
+}
+
+function enableDangerMode() {
+  dangerMode.value = true
+  showDangerDialog.value = false
 }
 
 async function scrollDown() {
@@ -491,6 +588,7 @@ async function ask(text) {
       question,
       session: session.value || undefined,
       credential: requestCredential(credentialId.value),
+      dangerously_skip_confirmation: dangerMode.value,
     })
     const result = raw?.message ?? raw
     session.value = result.session

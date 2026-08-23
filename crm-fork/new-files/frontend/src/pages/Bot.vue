@@ -24,6 +24,20 @@
       />
     </template>
     <template #right-header>
+      <Button
+        :label="__('Changes')"
+        @click="
+          router.push({
+            name: 'Audit Trail',
+            query: {
+              doctype: 'Baton Bot',
+              name: bot.name || route.params.botId,
+            },
+          })
+        "
+      >
+        <template #prefix><TablerListDetails class="h-4 w-4" /></template>
+      </Button>
       <Button :label="__('Runs')" @click="showRuns = true">
         <template #prefix><TablerHistory class="h-4 w-4" /></template>
       </Button>
@@ -214,6 +228,7 @@ import {
   IconX as TablerX,
   IconPlayerPlay as TablerPlay,
   IconHistory as TablerHistory,
+  IconListDetails as TablerListDetails,
   IconChevronRight as TablerChevronRight,
 } from '@tabler/icons-vue'
 import { useAICredentials } from '@/stores/aiCredentials'

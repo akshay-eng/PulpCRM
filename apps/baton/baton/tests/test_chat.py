@@ -79,6 +79,36 @@ class TestChatActions(FrappeTestCase):
 		self.assertEqual(cancelled["status"], "cancelled")
 		self.assertEqual(frappe.db.get_value("CRM Lead", lead.name, "status"), "New")
 
+	def test_danger_mode_executes_without_confirmation_and_marks_the_audit(self):
+		lead = self._lead("Ask Pulp Danger")
+		with patch(
+			"baton.api.chat.chat_json",
+			return_value={
+				"action": "update",
+				"doctype": "CRM Lead",
+				"filters": {"name": lead.name},
+				"values": {"status": "Contacted"},
+				"explanation": "The user asked to contact this lead.",
+			},
+		):
+			result = ask(
+				"Mark this lead as contacted",
+				dangerously_skip_confirmation=True,
+			)
+
+		self.assertEqual(result["pending_action"]["status"], "completed")
+		self.assertEqual(frappe.db.get_value("CRM Lead", lead.name, "status"), "Contacted")
+		log = frappe.get_all(
+			"Baton Action Log",
+			filters={"action": "record.updated", "reference_name": lead.name},
+			fields=["decision", "reason", "output"],
+			order_by="creation desc",
+			limit=1,
+		)[0]
+		self.assertEqual(log.decision, "DANGER_MODE")
+		self.assertEqual(log.reason, "The user asked to contact this lead.")
+		self.assertIn('"danger_mode": true', log.output)
+
 	def test_export_reuses_a_validated_permission_aware_query(self):
 		with patch(
 			"baton.api.chat.chat_json",

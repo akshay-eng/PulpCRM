@@ -390,10 +390,15 @@ diff --git a/frontend/src/router.js b/frontend/src/router.js
 index 1aec80c..3fd786b 100644
 --- a/frontend/src/router.js
 +++ b/frontend/src/router.js
-@@ -102,6 +102,31 @@ const routes = [
+@@ -102,6 +102,36 @@ const routes = [
      name: 'Call Logs',
      component: () => import('@/pages/CallLogs.vue'),
    },
++  {
++    path: '/audit-trail',
++    name: 'Audit Trail',
++    component: () => import('@/pages/AuditTrail.vue'),
++  },
 +  {
 +    path: '/automation',
 +    name: 'Automation',

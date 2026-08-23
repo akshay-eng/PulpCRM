@@ -20,15 +20,19 @@ doc_events = {
         "after_insert": [
             "baton.workflow.engine.handle_document_event",
             "baton.bots.runtime.handle_document_event",
+            "baton.audit.record_document_event",
         ],
         "on_update": [
             "baton.workflow.engine.handle_document_event",
             "baton.bots.runtime.handle_document_event",
+            "baton.audit.record_document_event",
         ],
         "on_trash": [
             "baton.workflow.engine.handle_document_event",
             "baton.bots.runtime.handle_document_event",
+            "baton.audit.record_document_event",
         ],
+        "after_rename": "baton.audit.record_document_event",
     },
     "WhatsApp Message": {
         "before_insert": "baton.api.whatsapp.tag_author",
