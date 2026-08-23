@@ -17,10 +17,10 @@ from frappe.utils import cint, now_datetime
 from baton.audit import already_done, log_action
 
 
-def latest_result(lead):
+def latest_result(reference_name, reference_doctype="CRM Lead"):
     rows = frappe.get_all(
         "Baton Qualification Result",
-        filters={"reference_doctype": "CRM Lead", "reference_name": lead},
+        filters={"reference_doctype": reference_doctype, "reference_name": reference_name},
         fields=["name", "score", "band", "summary", "next_action", "objections", "complete"],
         order_by="creation desc",
         limit_page_length=1,

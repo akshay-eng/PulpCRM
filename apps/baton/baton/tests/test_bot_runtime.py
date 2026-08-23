@@ -339,6 +339,80 @@ class TestBookMeetingGoogleSync(FrappeTestCase):
         self.assertFalse(mock_confirm.call_args.kwargs.get("add_video"))
 
 
+class TestBookMeetingNotifiesRep(FrappeTestCase):
+    """A successful booking must tell whoever the record is assigned to, on
+    WhatsApp, without the model having to remember a second tool call --
+    and a failure to notify must never undo the booking itself."""
+
+    def setUp(self):
+        from .test_scheduling import _availability
+
+        self.lead = _lead()
+        self.bot = _bot(connectors=("crm_leads", "calendar"))
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.avail = _availability()
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                   "vars": {}, "turn": 0}
+        self._original_mobile = frappe.db.get_value("User", "Administrator", "mobile_no")
+
+    def tearDown(self):
+        frappe.db.set_value("User", "Administrator", "mobile_no", self._original_mobile)
+        frappe.db.rollback()
+
+    def _book(self):
+        tools.execute("find_free_times", {"count": 1}, self.ctx)
+        with patch("baton.scheduling.book.hold", return_value=(object(), None)), \
+             patch("baton.scheduling.book.confirm", return_value="EVT-NOTIFY"):
+            return tools.execute("book_meeting", {"slot": "1"}, self.ctx)
+
+    def test_the_assigned_user_is_notified_on_whatsapp(self):
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", "+919000000001")
+
+        with patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"sent": True}) as wa:
+            out = self._book()
+
+        self.assertIn("booked", out)
+        wa.assert_called_once()
+        self.assertEqual(wa.call_args.kwargs["to"], "+919000000001")
+        self.assertIn("Meeting booked", wa.call_args.kwargs["message"])
+        self.assertIsNone(wa.call_args.kwargs["doc"])  # not gated as a customer message
+
+    def test_no_assignee_is_skipped_without_failing_the_booking(self):
+        self.lead.db_set("_assign", None)
+        with patch("baton.workflow.actions.whatsapp.send") as wa:
+            out = self._book()
+        self.assertIn("booked", out)
+        wa.assert_not_called()
+
+    def test_an_assignee_with_no_number_is_skipped_without_failing_the_booking(self):
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", None)
+        # This dev site has a real CRM Telephony Agent number configured for
+        # Administrator, which is exactly the fallback this feature relies
+        # on -- so simulate "genuinely no number anywhere" by clearing that
+        # fallback too, rather than asserting against real site data.
+        agent = frappe.db.get_value("CRM Telephony Agent", {"user": "Administrator"}, "name")
+        if agent:
+            frappe.db.set_value("CRM Telephony Agent", agent, "mobile_no", None)
+
+        with patch("baton.workflow.actions.whatsapp.send") as wa:
+            out = self._book()
+        self.assertIn("booked", out)
+        wa.assert_not_called()
+
+    def test_a_notification_failure_does_not_undo_the_booking(self):
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", "+919000000001")
+        with patch("baton.workflow.actions.whatsapp.send",
+                   side_effect=RuntimeError("boom")):
+            out = self._book()
+        self.assertEqual(out["event"], "EVT-NOTIFY")
+
+
 class TestOffTopicGuard(FrappeTestCase):
     """A reply that doesn't engage the last question gets a scripted redirect
     instead of a full model turn -- and never reaches the model at all."""

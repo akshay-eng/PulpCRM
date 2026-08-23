@@ -547,7 +547,72 @@ def _book_meeting(ctx, args):
                reference_name=doc.name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,
                external_id=event)
     ctx["vars"]["event"] = event
+    try:
+        _notify_rep_of_booking(ctx, doc, chosen)
+    except Exception as e:
+        # The booking itself already succeeded and must be reported as such --
+        # a notification failure is a thing to log, not a reason to tell the
+        # model (and through it, the customer) that booking failed.
+        log_action("bot.booking.notify_rep", status="Failed", actor_type="AI_AGENT",
+                   reference_doctype=doc.doctype, reference_name=doc.name,
+                   workflow_run=ctx["run"].name, error=str(e)[:400])
     return {"booked": chosen["label"], "event": event}
+
+
+def _notify_rep_of_booking(ctx, doc, chosen):
+    """Tell whoever this record is assigned to, on WhatsApp, the moment a
+    meeting is actually booked -- an automatic consequence of a successful
+    booking, not a second tool the model has to remember to call. Mirrors
+    the guardrail that already tells the model never to *say* a meeting is
+    booked unless this tool succeeded: the rep should hear about it exactly
+    as reliably as the customer does.
+
+    Always in addition to, never instead of, agents/conversion.py's own
+    notify_owner -- that one fires independently from auto-conversion and
+    can happen with no meeting ever booked.
+    """
+    try:
+        assigned = json.loads(doc.get("_assign") or "[]")
+    except (ValueError, TypeError):
+        assigned = []
+    user = assigned[0] if assigned else None
+    if not user:
+        log_action("bot.booking.notify_rep", status="Skipped", actor_type="AI_AGENT",
+                   reference_doctype=doc.doctype, reference_name=doc.name,
+                   workflow_run=ctx["run"].name, reason="No one is assigned to this record.")
+        return
+
+    number = (frappe.db.get_value("User", user, "mobile_no")
+             or frappe.db.get_value("CRM Telephony Agent", {"user": user}, "mobile_no"))
+    if not number:
+        log_action("bot.booking.notify_rep", status="Skipped", actor_type="AI_AGENT",
+                   reference_doctype=doc.doctype, reference_name=doc.name,
+                   workflow_run=ctx["run"].name,
+                   reason=f"{user} is assigned but has no WhatsApp number on file.")
+        return
+
+    from baton.agents.conversion import latest_result
+
+    result = latest_result(doc.name, doc.doctype)
+    who = doc.get("lead_name") or doc.get("organization") or doc.name
+    kind = "leads" if doc.doctype == "CRM Lead" else "deals"
+    link = f"{(frappe.utils.get_url() or '').rstrip('/')}/crm/{kind}/{doc.name}"
+
+    parts = [f"Meeting booked: {chosen['label']} with {who}."]
+    if result and result.get("summary"):
+        parts.append(result["summary"])
+    parts.append(link)
+    message = " ".join(p for p in parts if p)[:1400]
+
+    from baton.workflow.actions import whatsapp as wa_action
+
+    outcome = wa_action.send(to=number, message=message, run=ctx["run"],
+                             node=_ShimNode("notify_rep"), doc=None, author="ai")
+    log_action("bot.booking.notify_rep", actor_type="AI_AGENT",
+              reference_doctype=doc.doctype, reference_name=doc.name,
+              workflow_run=ctx["run"].name, output={"to": number, "user": user,
+                                                     "sent": bool(outcome.get("sent")) if
+                                                     isinstance(outcome, dict) else None})
 
 
 def _allowed_pages(ctx):
