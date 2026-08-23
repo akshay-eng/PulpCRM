@@ -16,7 +16,7 @@
       :title="__('Configure browser keys')"
       @click="openSettings"
     >
-      <template #prefix><LucideKeyRound class="h-3.5 w-3.5" /></template>
+      <template #prefix><TablerKey class="h-3.5 w-3.5" /></template>
     </Button>
     <div
       v-if="!compact && modelValue && !isReady(modelValue)"
@@ -32,7 +32,7 @@ import { computed } from 'vue'
 import { Button, Select } from 'frappe-ui'
 import { useAICredentials } from '@/stores/aiCredentials'
 import { showSettings, activeSettingsPage } from '@/composables/settings'
-import LucideKeyRound from '~icons/lucide/key-round'
+import { IconKey as TablerKey } from '@tabler/icons-vue'
 
 defineProps({
   modelValue: { type: String, default: '' },
