@@ -3,11 +3,17 @@
     <template #left-header>
       <Breadcrumbs
         :items="[
-          { label: __('AI Automation'), route: { name: 'Automation' } },
+          { label: __('AI Automations'), route: { name: 'Automation' } },
           { label: __('Bots'), route: { name: 'Bots' } },
         ]"
       />
       <span class="mx-1 text-ink-gray-4">/</span>
+      <AutomationAvatar
+        :identity="bot.name || route.params.botId"
+        kind="bot"
+        size="sm"
+        class="mr-1"
+      />
       <input
         v-model="nameDraft"
         class="min-w-[8ch] rounded px-1 py-0.5 text-p-base font-medium text-ink-gray-8 hover:bg-surface-gray-2 focus:bg-surface-gray-2 focus:outline-none"
@@ -19,10 +25,10 @@
     </template>
     <template #right-header>
       <Button :label="__('Runs')" @click="showRuns = true">
-        <template #prefix><LucideHistory class="h-4 w-4" /></template>
+        <template #prefix><TablerHistory class="h-4 w-4" /></template>
       </Button>
       <Button :label="__('Try it')" :loading="testing" @click="tryIt">
-        <template #prefix><LucidePlay class="h-4 w-4" /></template>
+        <template #prefix><TablerPlay class="h-4 w-4" /></template>
       </Button>
       <Button
         variant="solid"
@@ -121,7 +127,7 @@
           class="text-ink-gray-5 hover:text-ink-gray-8"
           @click="selectedId = null"
         >
-          <LucideX class="h-4 w-4" />
+          <TablerX class="h-4 w-4" />
         </button>
       </div>
       <div class="flex-1 overflow-y-auto px-4 py-4">
@@ -170,7 +176,7 @@
           <span class="ml-auto text-p-sm text-ink-gray-5">{{
             r.creation
           }}</span>
-          <LucideChevronRight class="h-4 w-4 text-ink-gray-4" />
+          <TablerChevronRight class="h-4 w-4 text-ink-gray-4" />
         </button>
       </template>
     </template>
@@ -187,6 +193,7 @@
  * people wire edges by hand would imply an ordering the runtime does not have.
  */
 import LayoutHeader from '@/components/LayoutHeader.vue'
+import AutomationAvatar from '@/components/AutomationAvatar.vue'
 import BotBrainNode from '@/components/Bot/BotBrainNode.vue'
 import ConnectorNode from '@/components/Bot/ConnectorNode.vue'
 import ConnectorPalette from '@/components/Bot/ConnectorPalette.vue'
@@ -203,10 +210,12 @@ import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
-import LucideX from '~icons/lucide/x'
-import LucidePlay from '~icons/lucide/play'
-import LucideHistory from '~icons/lucide/history'
-import LucideChevronRight from '~icons/lucide/chevron-right'
+import {
+  IconX as TablerX,
+  IconPlayerPlay as TablerPlay,
+  IconHistory as TablerHistory,
+  IconChevronRight as TablerChevronRight,
+} from '@tabler/icons-vue'
 import { useAICredentials } from '@/stores/aiCredentials'
 
 const route = useRoute()
@@ -321,7 +330,7 @@ function validate() {
           ? bot.value.ai_model
           : undefined,
       })
-    } catch (e) {
+    } catch {
       problems.value = []
     }
   }, 400)

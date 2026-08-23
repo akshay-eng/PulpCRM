@@ -15,102 +15,160 @@
       :width="mobile ? '260px' : undefined"
       class="border-r border-outline-gray-1"
     >
-      <div class="flex h-full flex-col p-2">
-        <UserDropdown :isCollapsed="isCollapsed" />
+      <div class="flex h-full flex-col px-2.5 py-3">
+        <div
+          class="rounded-xl border border-outline-gray-1 bg-surface-white p-1 shadow-sm"
+        >
+          <div
+            class="flex h-12 items-center rounded-lg"
+            :class="isCollapsed ? 'justify-center px-1' : 'px-2'"
+            :title="isCollapsed ? __(brand.name || 'Pulp') : undefined"
+          >
+            <BrandLogo v-model="brand" class="size-8 shrink-0" />
+            <div v-if="!isCollapsed" class="ml-2 min-w-0 flex-1 text-left">
+              <div
+                class="truncate text-base-medium leading-none text-ink-gray-9"
+              >
+                {{ __(brand.name || 'Pulp') }}
+              </div>
+              <div class="mt-1 truncate text-sm leading-none text-ink-gray-6">
+                {{ currentUser.full_name || user }}
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <!-- Ask: opens the right-hand panel for querying CRM data in English. -->
+        <!-- Ask is intentionally treated as the primary action instead of
+             another navigation row. -->
         <button
-          class="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-ink-gray-8 transition hover:bg-surface-gray-3"
-          :class="askPanelOpen ? 'bg-surface-gray-3' : ''"
-          :title="__('Ask')"
+          class="pulp-ask-button mt-3"
+          :class="{ 'pulp-ask-button--collapsed': isCollapsed }"
+          :title="__('Ask Pulp')"
           @click="toggleAskPanel"
         >
-          <LucideSparkles class="h-4 w-4 shrink-0 text-orange-500" />
-          <span v-if="!isCollapsed" class="text-base">{{ __('Ask') }}</span>
+          <TablerSparkles class="size-4 shrink-0" />
+          <span v-if="!isCollapsed" class="truncate">{{ __('Ask Pulp') }}</span>
+          <span
+            v-if="!isCollapsed && askPanelOpen"
+            class="ml-auto size-1.5 rounded-full bg-white"
+          />
         </button>
 
-        <!-- overflow-y-auto forces overflow-x to clip too, which would slice the
-             active row's shadow. Widen the scroll box to the sidebar edges and
-             pad the content back in so the shadow has room. -->
-        <div class="-mx-2 mt-2 flex flex-1 flex-col gap-1 overflow-y-auto px-2">
-          <SidebarItem
-            id="notifications-btn"
-            :label="__('Notifications')"
-            :to="mobile ? { name: 'Notifications' } : undefined"
-            :active="mobile && activeItem === 'Notifications'"
-            @click="onNotificationsClick"
+        <div
+          class="-mx-2.5 mt-3 flex flex-1 flex-col overflow-y-auto px-2.5 pb-3"
+        >
+          <nav
+            class="flex flex-col gap-1"
+            :aria-label="__('Primary navigation')"
           >
-            <template #prefix>
-              <span class="relative grid size-4 place-items-center">
-                <NotificationsIcon class="size-4 text-ink-gray-7" />
-                <span
-                  v-if="isCollapsed && unreadNotificationsCount"
-                  class="absolute -right-1 -top-1 size-1.5 rounded-full bg-surface-gray-9 ring-1 ring-[var(--surface-gray-1)]"
-                />
-              </span>
-            </template>
-            <template #suffix>
-              <Badge
-                v-if="unreadNotificationsCount"
-                class="mr-2"
-                :label="unreadNotificationsCount"
-                variant="subtle"
-              />
-            </template>
-          </SidebarItem>
+            <PulpNavItem
+              v-for="link in primaryLinks"
+              :key="link.key"
+              :label="__(link.label)"
+              :to="link.to"
+              :active="activeItem === link.key"
+              :collapsed="isCollapsed"
+              @click="selectItem($event, link.key)"
+            >
+              <template #prefix>
+                <Icon :icon="link.icon" class="size-4" />
+              </template>
+            </PulpNavItem>
 
-          <CollapsibleSection
-            v-for="section in allViews"
-            :key="section.name"
-            :label="section.name"
-            :hideLabel="section.hideLabel"
-            :opened="section.opened"
-          >
-            <template #header="{ opened, hide, toggle }">
-              <SidebarLabel
-                v-if="!hide"
-                divider
-                class="mb-1 mt-4 select-none"
-                :class="!isCollapsed && 'cursor-pointer'"
-                @click="toggle()"
-              >
-                <span class="flex items-center gap-1.5">
+            <PulpNavItem
+              id="notifications-btn"
+              :label="__('Notifications')"
+              :to="mobile ? { name: 'Notifications' } : undefined"
+              :active="
+                mobile ? activeItem === 'Notifications' : notificationsVisible
+              "
+              :collapsed="isCollapsed"
+              @click="onNotificationsClick"
+            >
+              <template #prefix>
+                <span class="relative grid size-4 place-items-center">
+                  <TablerBell class="size-4" />
                   <span
-                    class="lucide-chevron-right -ml-0.5 size-4 shrink-0 text-ink-gray-9 transition-transform duration-300 ease-in-out"
-                    :class="{ 'rotate-90': opened }"
-                    aria-hidden="true"
+                    v-if="isCollapsed && unreadNotificationsCount"
+                    class="absolute -right-1 -top-1 size-1.5 rounded-full bg-orange-500 ring-2 ring-[var(--surface-gray-1)]"
                   />
-                  <span class="truncate">{{ __(section.name) }}</span>
                 </span>
-              </SidebarLabel>
-            </template>
-            <nav class="flex flex-col gap-1">
-              <SidebarItem
-                v-for="link in section.views"
+              </template>
+              <template #suffix>
+                <Badge
+                  v-if="unreadNotificationsCount"
+                  :label="unreadNotificationsCount"
+                  variant="subtle"
+                />
+              </template>
+            </PulpNavItem>
+          </nav>
+
+          <nav
+            v-for="section in navigationSections"
+            :key="section.name"
+            class="mt-4 flex flex-col gap-1"
+            :aria-label="__(section.name)"
+          >
+            <p v-if="!isCollapsed" class="pulp-section-label">
+              {{ __(section.name) }}
+            </p>
+            <PulpNavItem
+              v-for="link in section.links"
+              :key="link.key"
+              :label="__(link.label)"
+              :to="link.to"
+              :active="activeItem === link.key"
+              :collapsed="isCollapsed"
+              @click="selectItem($event, link.key)"
+            >
+              <template #prefix>
+                <Icon :icon="link.icon" class="size-4" />
+              </template>
+            </PulpNavItem>
+          </nav>
+
+          <details
+            v-for="section in savedViewSections"
+            :key="section.name"
+            class="group mt-4"
+            open
+          >
+            <summary
+              v-if="!isCollapsed"
+              class="pulp-section-label cursor-pointer"
+            >
+              <span>{{ __(section.name) }}</span>
+              <TablerChevronDown
+                class="size-3.5 transition-transform group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
+            <nav
+              class="mt-1 flex flex-col gap-1"
+              :aria-label="__(section.name)"
+            >
+              <PulpNavItem
+                v-for="link in section.links"
                 :key="link.key"
-                :to="link.to"
                 :label="__(link.label)"
+                :to="link.to"
                 :active="activeItem === link.key"
+                :collapsed="isCollapsed"
                 @click="selectItem($event, link.key)"
               >
                 <template #prefix>
-                  <Icon :icon="link.icon" class="size-4 text-ink-gray-7" />
+                  <Icon :icon="link.icon" class="size-4" />
                 </template>
-                <Tooltip
-                  :text="__(link.label)"
-                  placement="right"
-                  :hoverDelay="1.5"
-                  :disabled="isCollapsed"
-                >
-                  <span class="truncate text-sm">{{ __(link.label) }}</span>
-                </Tooltip>
-              </SidebarItem>
+              </PulpNavItem>
             </nav>
-          </CollapsibleSection>
+          </details>
         </div>
 
-        <div v-if="!mobile" class="mt-auto flex flex-col gap-1 pt-2">
-          <div class="mb-1 flex flex-col gap-2">
+        <div
+          class="mt-auto flex flex-col gap-1 border-t border-outline-gray-1 pt-2"
+        >
+          <div v-if="!mobile" class="mb-1 flex flex-col gap-2">
             <SignupBanner
               v-if="isDemoSite"
               :isSidebarCollapsed="isCollapsed"
@@ -126,36 +184,59 @@
               :isSidebarCollapsed="isCollapsed"
             />
           </div>
-          <SidebarItem
-            v-if="isManager() && isDemoDataCreated"
+          <PulpNavItem
+            v-if="!mobile && isManager() && isDemoDataCreated"
             :label="__('Clear Demo Data')"
-            class="!text-ink-red-6 hover:!bg-surface-red-2"
+            :collapsed="isCollapsed"
+            danger
             @click="() => clearDemoData()"
           >
             <template #prefix>
-              <BrushCleaningIcon class="size-4" />
+              <TablerBrush class="size-4" />
             </template>
-          </SidebarItem>
-          <SidebarItem
-            v-if="isOnboardingStepsCompleted"
+          </PulpNavItem>
+          <PulpNavItem
+            v-if="!mobile"
+            :label="__('Settings')"
+            :active="showSettings"
+            :collapsed="isCollapsed"
+            @click="openSettings"
+          >
+            <template #prefix>
+              <TablerSettings class="size-4" />
+            </template>
+          </PulpNavItem>
+          <PulpNavItem
+            v-if="!mobile && isOnboardingStepsCompleted"
             :label="__('Help')"
+            :active="showHelpModal"
+            :collapsed="isCollapsed"
             @click="toggleHelpModal"
           >
             <template #prefix>
-              <HelpIcon class="size-4 text-ink-gray-7" />
+              <TablerHelpCircle class="size-4" />
             </template>
-          </SidebarItem>
-          <SidebarItem
+          </PulpNavItem>
+          <PulpNavItem
+            v-if="!mobile"
             :label="isCollapsed ? __('Expand') : __('Collapse')"
+            :collapsed="isCollapsed"
             @click="isSidebarCollapsed = !isSidebarCollapsed"
           >
             <template #prefix>
-              <CollapseSidebar
-                class="size-4 text-ink-gray-7 duration-300 ease-in-out"
-                :class="{ '[transform:rotateY(180deg)]': isCollapsed }"
-              />
+              <TablerSidebarExpand v-if="isCollapsed" class="size-4" />
+              <TablerSidebarCollapse v-else class="size-4" />
             </template>
-          </SidebarItem>
+          </PulpNavItem>
+          <PulpNavItem
+            :label="__('Log out')"
+            :collapsed="isCollapsed"
+            @click="logout.submit()"
+          >
+            <template #prefix>
+              <TablerLogout class="size-4" />
+            </template>
+          </PulpNavItem>
         </div>
       </div>
     </Sidebar>
@@ -183,10 +264,27 @@
 </template>
 
 <script setup>
-import BrushCleaningIcon from '~icons/lucide/brush-cleaning'
-import LucideLayoutDashboard from '~icons/lucide/layout-dashboard'
-import LucideWorkflow from '~icons/lucide/workflow'
-import LucideSparkles from '~icons/lucide/sparkles'
+import {
+  IconBrush as TablerBrush,
+  IconLayoutDashboard as TablerLayoutDashboard,
+  IconAutomation as TablerAutomation,
+  IconSparkles as TablerSparkles,
+  IconSettings as TablerSettings,
+  IconBell as TablerBell,
+  IconHelpCircle as TablerHelpCircle,
+  IconLayoutSidebarLeftCollapse as TablerSidebarCollapse,
+  IconLayoutSidebarLeftExpand as TablerSidebarExpand,
+  IconUserSearch as TablerUserSearch,
+  IconBriefcase2 as TablerBriefcase,
+  IconAddressBook as TablerAddressBook,
+  IconBuilding as TablerBuilding,
+  IconCircleCheck as TablerCircleCheck,
+  IconNote as TablerNote,
+  IconPhoneCall as TablerPhoneCall,
+  IconLogout as TablerLogout,
+  IconPin as TablerPin,
+  IconChevronDown as TablerChevronDown,
+} from '@tabler/icons-vue'
 import { askPanelOpen, toggleAskPanel } from '@/composables/ask'
 import CRMLogo from '@/components/Icons/CRMLogo.vue'
 import InviteIcon from '@/components/Icons/InviteIcon.vue'
@@ -194,30 +292,24 @@ import ConvertIcon from '@/components/Icons/ConvertIcon.vue'
 import CommentIcon from '@/components/Icons/CommentIcon.vue'
 import EmailIcon from '@/components/Icons/EmailIcon.vue'
 import StepsIcon from '@/components/Icons/StepsIcon.vue'
-import CollapsibleSection from '@/components/CollapsibleSection.vue'
 import Icon from '@/components/Icon.vue'
-import PinIcon from '@/components/Icons/PinIcon.vue'
-import UserDropdown from '@/components/UserDropdown.vue'
+import BrandLogo from '@/components/BrandLogo.vue'
+import PulpNavItem from '@/components/Layouts/PulpNavItem.vue'
 import SquareAsterisk from '@/components/Icons/SquareAsterisk.vue'
 import LeadsIcon from '@/components/Icons/LeadsIcon.vue'
-import DealsIcon from '@/components/Icons/DealsIcon.vue'
-import ContactsIcon from '@/components/Icons/ContactsIcon.vue'
-import OrganizationsIcon from '@/components/Icons/OrganizationsIcon.vue'
 import NoteIcon from '@/components/Icons/NoteIcon.vue'
 import TaskIcon from '@/components/Icons/TaskIcon.vue'
-import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
-import CollapseSidebar from '@/components/Icons/CollapseSidebar.vue'
-import NotificationsIcon from '@/components/Icons/NotificationsIcon.vue'
-import HelpIcon from '@/components/Icons/HelpIcon.vue'
 import Notifications from '@/components/Notifications.vue'
 import Settings from '@/components/Settings/Settings.vue'
 import { viewsStore } from '@/stores/views'
 import {
   unreadNotificationsCount,
   notificationsStore,
+  visible as notificationsVisible,
 } from '@/stores/notifications'
 import { usersStore } from '@/stores/users'
 import { sessionStore } from '@/stores/session'
+import { getSettings } from '@/stores/settings'
 import {
   showSettings,
   activeSettingsPage,
@@ -225,7 +317,7 @@ import {
 } from '@/composables/settings'
 import { showChangePasswordModal } from '@/composables/modals'
 import { useBroadcast } from '@/composables/useBroadcast.js'
-import { call, Sidebar, SidebarItem, SidebarLabel, Tooltip } from 'frappe-ui'
+import { call, Sidebar } from 'frappe-ui'
 import {
   SignupBanner,
   TrialBanner,
@@ -249,6 +341,11 @@ const props = defineProps({
 
 const route = useRoute()
 
+const { brand } = getSettings()
+const { user, logout } = sessionStore()
+const { users, isManager, getUser } = usersStore()
+const currentUser = computed(() => getUser() || {})
+
 const { getPinnedViews, getPublicViews } = viewsStore()
 const { toggle: toggleNotificationPanel } = notificationsStore()
 const { capture } = useTelemetry()
@@ -264,92 +361,67 @@ const isCollapsed = computed(() => isSidebarCollapsed.value && !props.mobile)
 const isFCSite = ref(window.is_fc_site)
 const isDemoSite = ref(window.is_demo_site)
 
-const links = [
-  {
-    label: 'Dashboard',
-    icon: LucideLayoutDashboard,
-    to: 'Dashboard',
-    condition: () => !props.mobile,
-  },
-  {
-    label: 'Leads',
-    icon: LeadsIcon,
-    to: 'Leads',
-  },
-  {
-    label: 'Deals',
-    icon: DealsIcon,
-    to: 'Deals',
-  },
-  {
-    label: 'Contacts',
-    icon: ContactsIcon,
-    to: 'Contacts',
-  },
-  {
-    label: 'Organizations',
-    icon: OrganizationsIcon,
-    to: 'Organizations',
-  },
-  {
-    label: 'Notes',
-    icon: NoteIcon,
-    to: 'Notes',
-  },
-  {
-    label: 'Tasks',
-    icon: TaskIcon,
-    to: 'Tasks',
-  },
-  {
-    label: 'Call Logs',
-    icon: PhoneIcon,
-    to: 'Call Logs',
-  },
-  {
-    label: 'AI Automation',
-    icon: LucideWorkflow,
-    to: 'Automation',
-  },
-]
+function navLink(label, icon, routeName) {
+  return {
+    label,
+    icon,
+    key: routeName,
+    to: { name: routeName },
+  }
+}
 
-const allViews = computed(() => {
-  let _views = [
-    {
-      name: 'All Views',
-      hideLabel: true,
-      opened: true,
-      views: links
-        .filter((link) => {
-          if (link.condition) {
-            return link.condition()
-          }
-          return true
-        })
-        .map((link) => ({
-          label: link.label,
-          icon: link.icon,
-          key: link.to,
-          to: { name: link.to },
-        })),
-    },
-  ]
+const primaryLinks = computed(() =>
+  props.mobile ? [] : [navLink('Overview', TablerLayoutDashboard, 'Dashboard')],
+)
+
+// Group by user intent, rather than exposing every data type as a peer. This
+// keeps frequently paired destinations visually close without hiding routes in
+// another interaction layer.
+const navigationSections = computed(() => [
+  {
+    name: 'Pipeline',
+    links: [
+      navLink('Leads', TablerUserSearch, 'Leads'),
+      navLink('Deals', TablerBriefcase, 'Deals'),
+    ],
+  },
+  {
+    name: 'Relationships',
+    links: [
+      navLink('Contacts', TablerAddressBook, 'Contacts'),
+      navLink('Companies', TablerBuilding, 'Organizations'),
+    ],
+  },
+  {
+    name: 'Productivity',
+    links: [
+      navLink('Tasks', TablerCircleCheck, 'Tasks'),
+      navLink('Notes', TablerNote, 'Notes'),
+      navLink('Calls', TablerPhoneCall, 'Call Logs'),
+    ],
+  },
+  {
+    name: 'Automation',
+    links: [navLink('AI Automations', TablerAutomation, 'Automation')],
+  },
+])
+
+const savedViewSections = computed(() => {
+  const sections = []
   if (getPublicViews().length) {
-    _views.push({
+    sections.push({
       name: 'Public Views',
-      opened: true,
-      views: parseView(getPublicViews()),
+      links: parseView(getPublicViews()),
     })
   }
 
   if (getPinnedViews().length) {
-    _views.push({
+    sections.push({
       name: 'Pinned Views',
-      opened: true,
-      views: parseView(getPinnedViews()),
+      links: parseView(getPinnedViews()),
     })
   }
-  return _views
+  return sections
 })
 
 function parseView(views) {
@@ -372,25 +444,41 @@ function getIcon(routeName, icon) {
 
   switch (routeName) {
     case 'Leads':
-      return LeadsIcon
+      return TablerUserSearch
     case 'Deals':
-      return DealsIcon
+      return TablerBriefcase
     case 'Contacts':
-      return ContactsIcon
+      return TablerAddressBook
     case 'Organizations':
-      return OrganizationsIcon
+      return TablerBuilding
     case 'Notes':
-      return NoteIcon
+      return TablerNote
+    case 'Tasks':
+      return TablerCircleCheck
     case 'Call Logs':
-      return PhoneIcon
+      return TablerPhoneCall
+    case 'Automation':
+      return TablerAutomation
     default:
-      return PinIcon
+      return TablerPin
   }
 }
 
 // A saved view's key is its name; a plain nav item's key is its route name.
 function currentRouteKey() {
-  return route.query.view || route.name
+  if (route.query.view) return route.query.view
+
+  const parentRoutes = {
+    Lead: 'Leads',
+    Deal: 'Deals',
+    Contact: 'Contacts',
+    Organization: 'Organizations',
+    Workflows: 'Automation',
+    Workflow: 'Automation',
+    Bots: 'Automation',
+    Bot: 'Automation',
+  }
+  return parentRoutes[route.name] || route.name
 }
 
 // Set the highlight on click rather than waiting for the route, since route
@@ -430,14 +518,17 @@ function onNotificationsClick(event) {
   }
 }
 
+function openSettings() {
+  if (!activeSettingsPage.value) activeSettingsPage.value = 'Profile'
+  showSettings.value = true
+}
+
 function toggleHelpModal() {
   showHelpModal.value = minimize.value ? true : !showHelpModal.value
   minimize.value = !showHelpModal.value
 }
 
 // onboarding
-const { user } = sessionStore()
-const { users, isManager } = usersStore()
 const { isOnboardingStepsCompleted, setUp } = useOnboarding('frappecrm')
 
 async function getFirstLead() {
@@ -746,3 +837,62 @@ const articles = ref([
   },
 ])
 </script>
+
+<style scoped>
+.pulp-ask-button {
+  display: flex;
+  min-height: 2.5rem;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgb(234 88 12 / 0.18);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    filter 150ms ease;
+}
+
+.pulp-ask-button:hover {
+  filter: saturate(1.08) brightness(1.03);
+  box-shadow: 0 8px 22px rgb(234 88 12 / 0.24);
+  transform: translateY(-1px);
+}
+
+.pulp-ask-button:active {
+  transform: translateY(0);
+}
+
+.pulp-ask-button--collapsed {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.pulp-section-label {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.625rem;
+  color: var(--ink-gray-5);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+summary.pulp-section-label {
+  list-style: none;
+}
+
+summary.pulp-section-label::-webkit-details-marker {
+  display: none;
+}
+</style>

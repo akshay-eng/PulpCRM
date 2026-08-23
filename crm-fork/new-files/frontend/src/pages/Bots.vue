@@ -1,14 +1,21 @@
 <template>
   <LayoutHeader>
     <template #left-header>
-      <Breadcrumbs :items="[
-        { label: __('AI Automation'), route: { name: 'Automation' } },
-        { label: __('Bots'), route: { name: 'Bots' } },
-      ]" />
+      <Breadcrumbs
+        :items="[
+          { label: __('AI Automations'), route: { name: 'Automation' } },
+          { label: __('Bots'), route: { name: 'Bots' } },
+        ]"
+      />
     </template>
     <template #right-header>
-      <Button variant="solid" :label="__('New bot')" :loading="creating" @click="create">
-        <template #prefix><LucidePlus class="h-4 w-4" /></template>
+      <Button
+        variant="solid"
+        :label="__('New bot')"
+        :loading="creating"
+        @click="create"
+      >
+        <template #prefix><TablerPlus class="h-4 w-4" /></template>
       </Button>
     </template>
   </LayoutHeader>
@@ -23,12 +30,24 @@
         v-else-if="!bots.length"
         class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-outline-gray-2 py-14 text-ink-gray-5"
       >
-        <LucideBot class="h-8 w-8" />
-        <div class="text-p-lg font-medium text-ink-gray-8">{{ __('No bots yet') }}</div>
-        <div class="max-w-sm text-center text-p-base">
-          {{ __('A bot is a brief plus the connectors it is allowed to use. It decides what to do; you decide what it can touch.') }}
+        <TablerRobot class="h-8 w-8" />
+        <div class="text-p-lg font-medium text-ink-gray-8">
+          {{ __('No bots yet') }}
         </div>
-        <Button class="mt-2" variant="solid" :label="__('Build one')" :loading="creating" @click="create" />
+        <div class="max-w-sm text-center text-p-base">
+          {{
+            __(
+              'A bot is a brief plus the connectors it is allowed to use. It decides what to do; you decide what it can touch.',
+            )
+          }}
+        </div>
+        <Button
+          class="mt-2"
+          variant="solid"
+          :label="__('Build one')"
+          :loading="creating"
+          @click="create"
+        />
       </div>
 
       <div v-else class="flex flex-col gap-2">
@@ -39,11 +58,11 @@
           @click="open(b)"
         >
           <div class="flex items-center gap-3">
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-gray-2">
-              <LucideBot class="h-4 w-4 text-ink-gray-7" />
-            </div>
+            <AutomationAvatar :identity="b.name || b.bot_name" kind="bot" />
             <div class="min-w-0 flex-1">
-              <div class="truncate text-p-base font-medium text-ink-gray-8">{{ b.bot_name }}</div>
+              <div class="truncate text-p-base font-medium text-ink-gray-8">
+                {{ b.bot_name }}
+              </div>
               <div class="truncate text-p-sm text-ink-gray-5">
                 {{ b.description || __('No description') }}
               </div>
@@ -53,11 +72,17 @@
               {{ b.enabled ? __('Live') : __('Off') }}
             </Badge>
             <Dropdown
-              :options="[{ label: __('Delete'), icon: 'trash-2', onClick: () => remove(b) }]"
+              :options="[
+                {
+                  label: __('Delete'),
+                  icon: 'trash-2',
+                  onClick: () => remove(b),
+                },
+              ]"
               @click.stop
             >
               <Button variant="ghost">
-                <template #icon><LucideMoreHorizontal class="h-4 w-4" /></template>
+                <template #icon><TablerDots class="h-4 w-4" /></template>
               </Button>
             </Dropdown>
           </div>
@@ -65,7 +90,12 @@
           <div class="mt-2 flex flex-wrap items-center gap-1.5 pl-11">
             <span class="text-p-sm text-ink-gray-5">{{ triggerLabel(b) }}</span>
             <span v-if="b.connectors?.length" class="text-ink-gray-3">·</span>
-            <Badge v-for="c in b.connectors" :key="c" theme="gray" variant="subtle">
+            <Badge
+              v-for="c in b.connectors"
+              :key="c"
+              theme="gray"
+              variant="subtle"
+            >
               {{ connectorLabel(c) }}
             </Badge>
           </div>
@@ -77,12 +107,15 @@
 
 <script setup>
 import LayoutHeader from '@/components/LayoutHeader.vue'
+import AutomationAvatar from '@/components/AutomationAvatar.vue'
 import { Breadcrumbs, Button, Badge, Dropdown, call, toast } from 'frappe-ui'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import LucideBot from '~icons/lucide/bot'
-import LucidePlus from '~icons/lucide/plus'
-import LucideMoreHorizontal from '~icons/lucide/more-horizontal'
+import {
+  IconRobot as TablerRobot,
+  IconPlus as TablerPlus,
+  IconDots as TablerDots,
+} from '@tabler/icons-vue'
 
 const router = useRouter()
 const bots = ref([])
@@ -127,9 +160,18 @@ async function create() {
     const bot = await call('baton.api.bot.save_bot', {
       data: JSON.stringify({
         bot_name: __('Untitled bot'),
-        instructions: __('Describe what this bot is for and how it should behave.'),
+        instructions: __(
+          'Describe what this bot is for and how it should behave.',
+        ),
         channel: 'WhatsApp',
-        connectors: [{ connector: 'crm_leads', enabled: 1, position_x: 160, position_y: 120 }],
+        connectors: [
+          {
+            connector: 'crm_leads',
+            enabled: 1,
+            position_x: 160,
+            position_y: 120,
+          },
+        ],
         triggers: [],
       }),
     })
@@ -142,7 +184,10 @@ async function create() {
 }
 
 async function remove(b) {
-  if (!window.confirm(__('Delete “{0}”? Its run history goes too.', [b.bot_name]))) return
+  if (
+    !window.confirm(__('Delete “{0}”? Its run history goes too.', [b.bot_name]))
+  )
+    return
   try {
     await call('baton.api.bot.delete_bot', { name: b.name })
     toast.success(__('Deleted'))

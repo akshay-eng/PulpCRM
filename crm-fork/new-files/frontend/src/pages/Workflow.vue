@@ -3,11 +3,17 @@
     <template #left-header>
       <Breadcrumbs
         :items="[
-          { label: __('AI Automation'), route: { name: 'Automation' } },
+          { label: __('AI Automations'), route: { name: 'Automation' } },
           { label: __('Workflows'), route: { name: 'Workflows' } },
         ]"
       />
       <span class="mx-1 text-ink-gray-4">/</span>
+      <AutomationAvatar
+        :identity="wf.name || route.params.workflowId"
+        kind="workflow"
+        size="sm"
+        class="mr-1"
+      />
       <input
         v-model="nameDraft"
         class="min-w-[8ch] rounded px-1 py-0.5 text-base font-medium text-ink-gray-8 hover:bg-surface-gray-2 focus:bg-surface-gray-2 focus:outline-none"
@@ -27,17 +33,17 @@
         :title="__('Undo')"
         @click="undo"
       >
-        <template #icon><LucideUndo2 class="h-4 w-4" /></template>
+        <template #icon><TablerUndo class="h-4 w-4" /></template>
       </Button>
       <Button variant="ghost" :title="__('Tidy up the layout')" @click="tidy">
-        <template #icon><LucideLayoutGrid class="h-4 w-4" /></template>
+        <template #icon><TablerLayoutGrid class="h-4 w-4" /></template>
       </Button>
       <AICredentialPicker v-if="hasAINodes" v-model="credentialId" compact />
       <Button :label="__('See Runs')" @click="showRuns = true">
-        <template #prefix><LucideHistory class="h-4 w-4" /></template>
+        <template #prefix><TablerHistory class="h-4 w-4" /></template>
       </Button>
       <Button :label="__('Test')" :loading="testing" @click="runTest">
-        <template #prefix><LucidePlay class="h-4 w-4" /></template>
+        <template #prefix><TablerPlay class="h-4 w-4" /></template>
       </Button>
       <Button
         variant="solid"
@@ -140,7 +146,7 @@
           class="text-ink-gray-5 hover:text-ink-gray-8"
           @click="closePanel"
         >
-          <LucideX class="h-4 w-4" />
+          <TablerX class="h-4 w-4" />
         </button>
       </div>
 
@@ -205,7 +211,7 @@
             r.reference_name || '—'
           }}</span>
           <span class="ml-auto text-xs text-ink-gray-5">{{ r.creation }}</span>
-          <LucideChevronRight class="h-4 w-4 text-ink-gray-4" />
+          <TablerChevronRight class="h-4 w-4 text-ink-gray-4" />
         </button>
       </template>
     </template>
@@ -214,6 +220,7 @@
 
 <script setup>
 import LayoutHeader from '@/components/LayoutHeader.vue'
+import AutomationAvatar from '@/components/AutomationAvatar.vue'
 import BatonNode from '@/components/Workflow/BatonNode.vue'
 import BatonEdge from '@/components/Workflow/BatonEdge.vue'
 import RunDetail from '@/components/Workflow/RunDetail.vue'
@@ -229,12 +236,14 @@ import { Controls } from '@vue-flow/controls'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
-import LucideX from '~icons/lucide/x'
-import LucidePlay from '~icons/lucide/play'
-import LucideHistory from '~icons/lucide/history'
-import LucideChevronRight from '~icons/lucide/chevron-right'
-import LucideUndo2 from '~icons/lucide/undo-2'
-import LucideLayoutGrid from '~icons/lucide/layout-grid'
+import {
+  IconX as TablerX,
+  IconPlayerPlay as TablerPlay,
+  IconHistory as TablerHistory,
+  IconChevronRight as TablerChevronRight,
+  IconArrowBackUp as TablerUndo,
+  IconLayoutGrid as TablerLayoutGrid,
+} from '@tabler/icons-vue'
 import AICredentialPicker from '@/components/AI/AICredentialPicker.vue'
 import { useAICredentials } from '@/stores/aiCredentials'
 
@@ -491,7 +500,7 @@ function validate() {
           kind: wf.value.kind,
         }),
       })
-    } catch (e) {
+    } catch {
       problems.value = []
     }
   }, 400)
