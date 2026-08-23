@@ -22,13 +22,27 @@
       <Button :label="__('Try it')" :loading="testing" @click="tryIt">
         <template #prefix><LucidePlay class="h-4 w-4" /></template>
       </Button>
+      <!--
+        Work is saved as you go, so a refresh cannot throw it away. The label
+        says which state we are in, because silent autosave leaves people
+        wondering whether it happened.
+      -->
+      <span class="text-p-sm text-ink-gray-5">
+        {{ saving ? __('Saving…') : dirty ? __('Unsaved') : __('Saved') }}
+      </span>
       <Button variant="solid" :loading="saving" :label="__('Save')" @click="save" />
       <Button :variant="bot.enabled ? 'subtle' : 'outline'"
         :label="bot.enabled ? __('Switch off') : __('Switch on')" @click="toggle" />
     </template>
   </LayoutHeader>
 
-  <div class="flex flex-1 overflow-hidden">
+  <div v-if="loadError"
+    class="m-4 rounded-md border border-outline-red-2 bg-surface-red-1 px-4 py-3 text-p-base text-ink-red-3">
+    {{ loadError }}
+    <button class="ml-2 underline" @click="loadError = ''; load()">{{ __('Try again') }}</button>
+  </div>
+
+  <div v-else class="flex flex-1 overflow-hidden">
     <ConnectorPalette :catalog="catalog" :attached="attachedIds" @add="addConnector($event)" />
 
     <div class="relative flex-1" @dragover.prevent @drop="onDrop">
@@ -88,6 +102,7 @@
           :spec="specOf(selectedConnector.connector)"
           :availabilities="availabilities"
           :senders="senders"
+          :knowledge-bases="knowledgeBases"
           @remove="removeConnector(selectedConnector)" />
       </div>
     </div>
@@ -131,8 +146,9 @@ import BotBrief from '@/components/Bot/BotBrief.vue'
 import TriggerPanel from '@/components/Workflow/TriggerPanel.vue'
 import RunDetail from '@/components/Workflow/RunDetail.vue'
 import { Breadcrumbs, Button, Badge, Dialog, call, toast } from 'frappe-ui'
-import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { showSettings } from '@/composables/settings'
 import { VueFlow, MarkerType, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -154,12 +170,19 @@ const models = ref([])
 const doctypes = ref([])
 const availabilities = ref([])
 const senders = ref([])
+const knowledgeBases = ref([])
 const problems = ref([])
 const runs = ref([])
 const openRun = ref(null)
 const selectedId = ref(null)
 const nameDraft = ref('')
 const saving = ref(false)
+const dirty = ref(false)
+const loadError = ref('')
+// Set while server data is being applied, so writing the response back into
+// `bot` does not look like an edit and retrigger the autosave forever.
+let applying = false
+let autosaveTimer = null
 const testing = ref(false)
 const showRuns = ref(false)
 const flowNodes = ref([])
@@ -240,6 +263,29 @@ function validate() {
 watch(bot, syncGraph, { deep: true })
 
 /**
+ * Autosave. A bot mid-build is usually invalid -- no instructions yet, a
+ * connector pulled off to be put back -- so this saves as a draft, which
+ * persists the work without pretending the bot is ready to run.
+ */
+watch(
+  bot,
+  () => {
+    if (applying || !bot.value?.name) return
+    dirty.value = true
+    clearTimeout(autosaveTimer)
+    autosaveTimer = setTimeout(() => persist({ draft: true }), 1200)
+  },
+  { deep: true },
+)
+
+/** Last line of defence: the tab is closing with work not yet written. */
+function beforeUnload(e) {
+  if (!dirty.value && !saving.value) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+
+/**
  * The panel is a flex sibling, so opening it makes the canvas narrower -- and
  * VueFlow keeps its viewport where it was, which pushes anything on the right
  * underneath the panel where it cannot be clicked. Re-fit whenever the panel
@@ -290,6 +336,7 @@ function addConnector(spec, at) {
     label: spec.label,
     enabled: 1,
     config,
+    disabled_tools: [],
     position_x: Math.round(at?.x ?? x),
     position_y: Math.round(at?.y ?? y),
   })
@@ -302,44 +349,88 @@ function removeConnector(c) {
 }
 
 async function load() {
-  const [data, cat, meta, mailboxes] = await Promise.all([
-    call('baton.api.bot.get_bot', { name: route.params.botId }),
-    call('baton.api.bot.get_connector_catalog'),
-    call('baton.api.workflow.get_node_schemas'),
-    call('baton.api.google.sending_accounts').catch(() => []),
-  ])
-  data.connectors = data.connectors || []
-  data.triggers = data.triggers || []
-  bot.value = data
-  models.value = data.models || []
-  nameDraft.value = data.bot_name
-  catalog.value = cat
-  doctypes.value = meta.doctypes
-  availabilities.value = meta.availabilities || []
-  senders.value = mailboxes || []
-  syncGraph()
+  try {
+    const [data, cat, meta, mailboxes, bases] = await Promise.all([
+      call('baton.api.bot.get_bot', { name: route.params.botId }),
+      call('baton.api.bot.get_connector_catalog'),
+      call('baton.api.workflow.get_node_schemas'),
+      call('baton.api.google.sending_accounts').catch(() => []),
+      // A Sales User may not manage knowledge bases; the canvas still loads.
+      call('baton.api.kb.list_knowledge_bases').catch(() => []),
+    ])
+    data.connectors = data.connectors || []
+    data.triggers = data.triggers || []
+    // Applying loaded data is not an edit. Without this the arrival of the bot
+    // marks it dirty and immediately autosaves it back.
+    applying = true
+    bot.value = data
+    models.value = data.models || []
+    nameDraft.value = data.bot_name
+    catalog.value = cat
+    doctypes.value = meta.doctypes
+    availabilities.value = meta.availabilities || []
+    senders.value = mailboxes || []
+    knowledgeBases.value = bases || []
+    await nextTick()
+    applying = false
+    dirty.value = false
+    syncGraph()
+  } catch (e) {
+    // Silently leaving the default empty bot on screen looks exactly like a bot
+    // that lost all its work, which is the worst possible way to fail here.
+    applying = false
+    loadError.value = e.messages?.[0] || e.message || __('Could not load this bot')
+    toast.error(loadError.value)
+  }
 }
 
-async function save() {
+// The catalog's credential.configured flags are fetched once on load. A
+// connector fixed in Settings -- opened as an overlay on this same page,
+// not a navigation -- would otherwise keep showing "not connected" until a
+// full reload, because nothing ever told this page to ask again.
+async function refreshCatalog() {
+  try {
+    catalog.value = await call('baton.api.bot.get_connector_catalog')
+  } catch (e) {
+    // Silent: this is a background refresh of status badges, not a load the
+    // user is waiting on.
+  }
+}
+
+watch(showSettings, (open, wasOpen) => {
+  if (!open && wasOpen) refreshCatalog()
+})
+
+async function persist({ draft = false } = {}) {
+  clearTimeout(autosaveTimer)
   saving.value = true
   try {
     const saved = await call('baton.api.bot.save_bot', {
       data: JSON.stringify({ ...bot.value, name: bot.value.name || route.params.botId }),
+      draft: draft ? 1 : 0,
     })
     saved.connectors = saved.connectors || []
     saved.triggers = saved.triggers || []
+    applying = true
     bot.value = saved
     models.value = saved.models || []
+    await nextTick()
+    applying = false
+    dirty.value = false
     syncGraph()
-    toast.success(__('Saved'))
+    if (!draft) toast.success(__('Saved'))
     return true
   } catch (e) {
-    toast.error(e.messages?.[0] || e.message || __('Could not save'))
+    // A draft save failing is not worth a toast on every keystroke; the header
+    // still says "Unsaved", and the explicit Save button reports properly.
+    if (!draft) toast.error(e.messages?.[0] || e.message || __('Could not save'))
     return false
   } finally {
     saving.value = false
   }
 }
+
+const save = () => persist({ draft: false })
 
 async function rename() {
   const wanted = (nameDraft.value || '').trim()
@@ -400,5 +491,15 @@ watch(showRuns, (v) => {
   if (v) loadRuns()
   else openRun.value = null
 })
-onMounted(load)
+onMounted(() => {
+  load()
+  window.addEventListener('beforeunload', beforeUnload)
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(autosaveTimer)
+  window.removeEventListener('beforeunload', beforeUnload)
+  // Leaving the page with edits pending would lose them just as a refresh did.
+  if (dirty.value) persist({ draft: true })
+})
 </script>
