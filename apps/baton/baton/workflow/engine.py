@@ -725,13 +725,18 @@ def _execute(node, context, run, phase="enter"):
                    reference_name=held.reference_name, workflow_run=run.name,
                    node_id=node.node_id, idempotency_key=key, external_id=event)
 
+        video_url = booking.video_link(event)
+        vars_["video_url"] = video_url
+
         confirmation = (_render(cfg.get("confirmation"), context)
                         or _("Booked — {0}. See you then.").format(vars_.get("slot_label", "")))
+        if video_url and video_url not in confirmation:
+            confirmation = f"{confirmation}\n{_('Join')}: {video_url}"
         wa_action.send(to=_render(cfg.get("to"), context), message=confirmation,
                        run=run, node=node, doc=doc, author="ai", turn=0)
 
         vars_["event"] = event
-        return {"event": event, "result": event}, node.next_node
+        return {"event": event, "result": event, "video_url": video_url}, node.next_node
 
     if kind == "Await Reply":
         # Enter: park until the contact says something on this channel.

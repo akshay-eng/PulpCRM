@@ -365,7 +365,9 @@ CONNECTORS = [
                          "description": "How many to look for, at most 5."}]},
             {"name": "book_meeting", "label": "Book a meeting",
              "description": "Book one of the times find_free_times returned. "
-                            "Pass the slot exactly as it was given to you.",
+                            "Pass the slot exactly as it was given to you. "
+                            "The result may include a video_url -- when it does, "
+                            "always share it with the customer in your confirmation.",
              "params": [
                  {"name": "slot", "type": "string", "required": True,
                   "description": "The slot id from find_free_times."},

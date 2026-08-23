@@ -244,6 +244,58 @@ class TestConfirm(FrappeTestCase):
         self.assertNotIn(first, again, "offered a slot that was just booked")
 
 
+class TestJitsiFallback(FrappeTestCase):
+    """A Google Meet link (when there's a calendar to sync to) only exists
+    once push_to_google's enqueued job runs, well after confirm() has
+    returned -- too late for the confirmation message that's about to be
+    sent. Jitsi needs no API call, so it must be ready synchronously
+    whenever there's no Google Calendar to fall back to Google for."""
+
+    def setUp(self):
+        _clear_holds()
+
+    def tearDown(self):
+        _delete_test_leads()
+
+    def test_no_calendar_gets_a_jitsi_link_on_the_event(self):
+        lead = _lead()
+        start = _next_monday_9am()
+        held, _ = booking.hold("Administrator", start, add_to_date(start, minutes=30),
+                               reference_doctype="CRM Lead", reference_name=lead.name)
+        event = booking.confirm(held, subject="T Sched Jitsi")
+        self.addCleanup(frappe.delete_doc, "Event", event, force=True, ignore_permissions=True)
+
+        link = booking.video_link(event)
+        self.assertIsNotNone(link)
+        self.assertTrue(link.startswith("https://meet.jit.si/"))
+        self.assertEqual(frappe.db.get_value("Event", event, "location"), link)
+
+    def test_a_configured_calendar_skips_the_jitsi_link(self):
+        """Google is the preferred path when it's actually available -- Jitsi
+        is a fallback, not a link stapled onto every meeting regardless."""
+        lead = _lead()
+        start = add_to_date(_next_monday_9am(), minutes=30)
+        held, _ = booking.hold("Administrator", start, add_to_date(start, minutes=30),
+                               reference_doctype="CRM Lead", reference_name=lead.name)
+        event = booking.confirm(held, subject="T Sched No Jitsi", google_calendar="Some Cal")
+        self.addCleanup(frappe.delete_doc, "Event", event, force=True, ignore_permissions=True)
+
+        self.assertIsNone(booking.video_link(event))
+
+    def test_jitsi_fallback_can_be_turned_off(self):
+        lead = _lead()
+        start = add_to_date(_next_monday_9am(), minutes=60)
+        held, _ = booking.hold("Administrator", start, add_to_date(start, minutes=30),
+                               reference_doctype="CRM Lead", reference_name=lead.name)
+        event = booking.confirm(held, subject="T Sched Opt Out", jitsi_fallback=False)
+        self.addCleanup(frappe.delete_doc, "Event", event, force=True, ignore_permissions=True)
+
+        self.assertIsNone(booking.video_link(event))
+
+    def test_each_link_is_a_distinct_unguessable_room(self):
+        self.assertNotEqual(booking.jitsi_link(), booking.jitsi_link())
+
+
 def tearDownModule():
     for name in frappe.get_all("Baton Availability",
                                filters={"title": ["like", "T Sched%"]}, pluck="name"):

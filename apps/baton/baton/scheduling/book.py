@@ -61,9 +61,33 @@ def release(hold_name, reason="released"):
     frappe.db.commit()
 
 
+def jitsi_link():
+    """A free, no-signup video room. meet.jit.si needs no account, API key, or
+    billing -- the room name is a long random token since it's the only thing
+    standing between the meeting and a stranger who guesses the URL.
+    """
+    return f"https://meet.jit.si/baton-{frappe.generate_hash(length=24)}"
+
+
+def video_link(event_name):
+    """The video URL confirm() attached to this Event, if any."""
+    return frappe.db.get_value("Event", event_name, "location") or None
+
+
 def confirm(hold_doc, subject, description=None, attendee_contact=None,
-            google_calendar=None, add_video=False):
-    """Turn a held slot into an Event. Returns the Event name."""
+            google_calendar=None, add_video=False, jitsi_fallback=True):
+    """Turn a held slot into an Event. Returns the Event name.
+
+    A Google Meet link (when google_calendar is set) only exists once
+    push_to_google's enqueued job runs, after this function has already
+    returned -- too late for the confirmation message the caller is about to
+    send. Jitsi needs no API call, so when there's no Google Calendar to sync
+    to, a room is generated right here and stored on the Event's location,
+    ready for the caller to read back with video_link() and actually hand to
+    the customer.
+    """
+    video_url = jitsi_link() if (jitsi_fallback and not google_calendar) else None
+
     event = frappe.get_doc({
         "doctype": "Event",
         "subject": subject,
@@ -73,6 +97,7 @@ def confirm(hold_doc, subject, description=None, attendee_contact=None,
         "event_type": "Private",
         "status": "Open",
         "description": description,
+        "location": video_url,
         "reference_doctype": hold_doc.reference_doctype,
         "reference_docname": hold_doc.reference_name,
         # Sync is switched on afterwards, out of band -- see the module docstring.

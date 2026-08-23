@@ -547,8 +547,9 @@ def _book_meeting(ctx, args):
                reference_name=doc.name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,
                external_id=event)
     ctx["vars"]["event"] = event
+    video_url = booking.video_link(event)
     try:
-        _notify_rep_of_booking(ctx, doc, chosen)
+        _notify_rep_of_booking(ctx, doc, chosen, video_url)
     except Exception as e:
         # The booking itself already succeeded and must be reported as such --
         # a notification failure is a thing to log, not a reason to tell the
@@ -556,10 +557,10 @@ def _book_meeting(ctx, args):
         log_action("bot.booking.notify_rep", status="Failed", actor_type="AI_AGENT",
                    reference_doctype=doc.doctype, reference_name=doc.name,
                    workflow_run=ctx["run"].name, error=str(e)[:400])
-    return {"booked": chosen["label"], "event": event}
+    return {"booked": chosen["label"], "event": event, "video_url": video_url}
 
 
-def _notify_rep_of_booking(ctx, doc, chosen):
+def _notify_rep_of_booking(ctx, doc, chosen, video_url=None):
     """Tell whoever this record is assigned to, on WhatsApp, the moment a
     meeting is actually booked -- an automatic consequence of a successful
     booking, not a second tool the model has to remember to call. Mirrors
@@ -601,6 +602,8 @@ def _notify_rep_of_booking(ctx, doc, chosen):
     parts = [f"Meeting booked: {chosen['label']} with {who}."]
     if result and result.get("summary"):
         parts.append(result["summary"])
+    if video_url:
+        parts.append(f"Join: {video_url}")
     parts.append(link)
     message = " ".join(p for p in parts if p)[:1400]
 

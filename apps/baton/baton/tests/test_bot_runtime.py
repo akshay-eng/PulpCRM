@@ -339,6 +339,36 @@ class TestBookMeetingGoogleSync(FrappeTestCase):
         self.assertFalse(mock_confirm.call_args.kwargs.get("add_video"))
 
 
+class TestBookMeetingVideoLink(FrappeTestCase):
+    """book_meeting must hand the model a video_url when one exists, so it
+    can actually be relayed to the customer -- unlike a Google Meet link
+    (only ready once push_to_google's enqueued job runs), a Jitsi fallback
+    is generated synchronously inside confirm() and must come straight back
+    out through the tool result."""
+
+    def setUp(self):
+        from .test_scheduling import _availability
+
+        self.lead = _lead()
+        self.bot = _bot(connectors=("crm_leads", "calendar"))
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.avail = _availability()
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                   "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_no_calendar_configured_returns_a_jitsi_video_url(self):
+        tools.execute("find_free_times", {"count": 1}, self.ctx)
+        out = tools.execute("book_meeting", {"slot": "1"}, self.ctx)
+        self.assertTrue(out["video_url"].startswith("https://meet.jit.si/"))
+        self.addCleanup(frappe.delete_doc, "Event", out["event"], force=True,
+                        ignore_permissions=True)
+
+
 class TestBookMeetingNotifiesRep(FrappeTestCase):
     """A successful booking must tell whoever the record is assigned to, on
     WhatsApp, without the model having to remember a second tool call --
