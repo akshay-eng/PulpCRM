@@ -157,14 +157,10 @@ def install_all():
     install_default_profile()
 
 
-def install_assignment_rule():
-    """A default round-robin rule for Deals (spec §22 -- reuse Frappe's engine).
-
-    Deliberately uses Frappe's own Assignment Rule rather than a Baton-specific
-    mechanism, so an admin who already knows Frappe can change it without
-    learning our system.
-    """
-    name = "Baton — Round robin Deals"
+def _install_assignment_rule(name, document_type):
+    """A default round-robin rule (spec §22 -- reuse Frappe's engine, not a
+    Baton-specific one, so an admin who already knows Frappe can change it
+    without learning our system)."""
     if frappe.db.exists("Assignment Rule", name):
         print("  = assignment rule exists")
         return name
@@ -181,11 +177,11 @@ def install_assignment_rule():
     doc = frappe.get_doc({
         "doctype": "Assignment Rule",
         "name": name,
-        "document_type": "CRM Deal",
+        "document_type": document_type,
         "rule": "Round Robin",
         "disabled": 0,
         "priority": 0,
-        # Assign every deal; narrowing is the admin's job.
+        # Assign every record; narrowing is the admin's job.
         "assign_condition": "1 == 1",
         "users": [{"user": u} for u in users],
         # Assignment Rule requires at least one working day.
@@ -197,3 +193,15 @@ def install_assignment_rule():
     frappe.db.commit()
     print(f"  + Assignment Rule '{name}' -> {len(users)} user(s), round robin")
     return name
+
+
+def install_assignment_rule():
+    """A default round-robin rule for Deals."""
+    return _install_assignment_rule("Baton — Round robin Deals", "CRM Deal")
+
+
+def install_assignment_rule_lead():
+    """A default round-robin rule for Leads, so a rep is knowable from the
+    first message a lead-engagement bot sends -- not only after a lead
+    qualifies and converts to a Deal."""
+    return _install_assignment_rule("Baton — Round robin Leads", "CRM Lead")
