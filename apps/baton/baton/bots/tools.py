@@ -71,10 +71,15 @@ class ToolError(Exception):
 class Park:
     """A tool that means "stop and wait", not "here is your answer"."""
 
-    def __init__(self, kind, seconds, channel=None):
+    def __init__(self, kind, seconds, channel=None, approval=None):
         self.kind = kind
         self.seconds = seconds
         self.channel = channel
+        # Set only for kind="Approval": the Baton Approval this run is
+        # waiting on, so _loop can wire up state["pending_approval"] and the
+        # human's answer resumes the run rather than a draft sitting there
+        # forever with nothing watching it.
+        self.approval = approval
 
 
 # ------------------------------------------------------------------ helpers
@@ -363,13 +368,26 @@ def _send_whatsapp(ctx, args):
     outcome = wa_action.send(
         to=to, message=message[:900], run=ctx["run"],
         node=_ShimNode("whatsapp"), doc=doc, author="ai", turn=ctx["turn"],
+        skip_draft=bool(ctx.get("skip_draft_gate")),
     )
     if outcome.get("blocked"):
         # A refusal is an answer, not a crash. The bot is told, and can decide to
         # raise a task for a human instead of retrying a send that cannot happen.
         return {"sent": False, "refused": outcome.get("skipped")}
     if outcome.get("drafted"):
-        return {"sent": False, "drafted_for_approval": outcome["drafted"]}
+        # wa_action.send()'s own draft record carries {"to", "channel"} --
+        # enough for a human reviewing it, but bots/approval.py:settle() needs
+        # {"tool", "args"} to reconstruct what to actually run on approval.
+        # Overwriting it here, rather than teaching wa_action.send() a second
+        # payload shape a plain workflow node has no use for.
+        frappe.db.set_value("Baton Approval", outcome["drafted"], "payload",
+                            json.dumps({"tool": "send_whatsapp", "args": {"message": message}},
+                                       default=str))
+        # A Park, not a dict: without this the run just carries on to another
+        # model turn immediately, and a human approving the draft later has
+        # nothing waiting to resume -- the message never actually goes out.
+        hours = cint(ctx["bot"].approval_timeout_hours) or 24
+        return Park("Approval", hours * 3600, channel="Any", approval=outcome["drafted"])
     return {"sent": True, "to": to}
 
 
@@ -414,8 +432,32 @@ def _send_email(ctx, args):
     if not allowed:
         return {"sent": False, "refused": why}
 
-    if mode == "Draft":
-        return {"sent": False, "refused": "Email is in Draft mode; a human has to approve it."}
+    # A human already approved this exact email; asking again would loop
+    # forever rather than ever actually sending it.
+    if mode == "Draft" and not ctx.get("skip_draft_gate"):
+        # Goes through the one approval-resolution path (bots/approval.py)
+        # however the answer arrives -- an emailed link or a WhatsApp reply.
+        # payload carries both: to/subject/channel for a human reviewing the
+        # draft, tool/args for settle() to reconstruct what to actually send
+        # once approved.
+        approval = frappe.get_doc({
+            "doctype": "Baton Approval",
+            "kind": "Send Message",
+            "status": "Pending",
+            "draft_text": body,
+            "reference_doctype": doc.doctype,
+            "reference_name": doc.name,
+            "workflow_run": ctx["run"].name,
+            "payload": json.dumps({"to": to, "subject": subject, "channel": "Email",
+                                   "tool": "send_email",
+                                   "args": {"subject": subject, "body": body}}, default=str),
+        }).insert(ignore_permissions=True)
+        log_action("email.draft", actor_type="AI_AGENT", reference_doctype=doc.doctype,
+                   reference_name=doc.name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,
+                   decision="AWAIT_APPROVAL", reason="Draft mode is on for email",
+                   output={"approval": approval.name})
+        hours = cint(ctx["bot"].approval_timeout_hours) or 24
+        return Park("Approval", hours * 3600, channel="Any", approval=approval.name)
     try:
         frappe.flags.baton_ai_email = True
         frappe.sendmail(recipients=[to], subject=subject[:200], message=body[:20000],

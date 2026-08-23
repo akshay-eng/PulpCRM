@@ -371,6 +371,10 @@ def _loop(bot, run, doc, state, event_payload=None, dry_run=False):
     if pre and pre.get("tool"):
         used += 1
         try:
+            # A human already approved this exact message; re-running it must
+            # not ask the same question again just because the send mode is
+            # still globally Draft.
+            ctx["skip_draft_gate"] = True
             outcome = bot_tools.execute(pre["tool"], pre.get("args") or {}, ctx)
             outcome = {"note": "a human approved this"} if isinstance(outcome, bot_tools.Park) \
                 else outcome
@@ -380,6 +384,8 @@ def _loop(bot, run, doc, state, event_payload=None, dry_run=False):
             outcome = {"failed": str(e)[:400]}
             _step(run, used, f"step {used}", "Failed",
                   {"tool": pre["tool"], "approved": True, "error": str(e)[:400]}, 0)
+        finally:
+            ctx.pop("skip_draft_gate", None)
         state.setdefault("observations", []).append(
             {"tool": pre["tool"], "args": pre.get("args") or {}, "result": outcome})
         state["steps_used"] = used
@@ -475,6 +481,12 @@ def _loop(bot, run, doc, state, event_payload=None, dry_run=False):
                 state["vars"]["last_question_asked"] = cstr(asked)[:900]
 
         if isinstance(result, bot_tools.Park):
+            if result.kind == "Approval" and result.approval:
+                # Same field the gated_tools path above sets, so the same
+                # settle()/approved_action resume machinery picks this up
+                # regardless of whether the approval came from a guarded tool
+                # or a tool's own draft-mode outcome.
+                state["pending_approval"] = result.approval
             _step(run, used, f"step {used}", "Success",
                   {"tool": decision["tool"], "waiting": result.kind}, ms)
             _park(run, result, state)

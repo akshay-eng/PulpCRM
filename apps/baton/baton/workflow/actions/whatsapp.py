@@ -18,11 +18,19 @@ from baton.conversation.state import can_ai_send
 from baton.conversation.whatsapp_policy import choose_send_mode
 
 
-def send(*, to, message, run, node, doc=None, author="ai", template=None, turn=0):
+def send(*, to, message, run, node, doc=None, author="ai", template=None, turn=0,
+         skip_draft=False):
     """Send, draft, or refuse. Returns an outcome dict for the run step.
 
     Never raises for a refusal -- a blocked send is a normal outcome that has to
     be recorded, not an error that fails the run.
+
+    `skip_draft` is for one caller only: re-running a message a human just
+    approved. Draft mode means "hold for a person to decide" -- one already
+    did, for this exact message, so drafting it a second time would ask the
+    same question forever rather than ever actually sending it. Every other
+    gate (do-not-contact, quiet hours, the rate limit, the 24h window) still
+    applies -- approval is not a bypass for those.
     """
     if "frappe_whatsapp" not in frappe.get_installed_apps():
         return {"skipped": "frappe_whatsapp not installed"}
@@ -64,7 +72,7 @@ def send(*, to, message, run, node, doc=None, author="ai", template=None, turn=0
                        decision="SUPPRESSED", reason=policy.get("reason"))
             return {"skipped": policy.get("reason"), "blocked": True}
 
-        if mode == "Draft":
+        if mode == "Draft" and not skip_draft:
             approval = frappe.get_doc({
                 "doctype": "Baton Approval",
                 "kind": "Send Message",

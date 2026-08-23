@@ -117,7 +117,8 @@ class TestTheInterrupt(FrappeTestCase):
         with patch("baton.bots.runtime.chat_json", side_effect=script), \
              patch("baton.workflow.actions.whatsapp.send",
                    return_value={"sent": True}) as wa, \
-             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")):
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.channels.openwa.is_enabled", return_value=True):
             runtime.run_bot(bot.name, doc=self.lead)
         wa.assert_called_once()
 
@@ -142,7 +143,8 @@ class TestTheAnswer(FrappeTestCase):
         with patch("baton.bots.runtime.chat_json", side_effect=script), \
              patch("baton.workflow.actions.whatsapp.send",
                    return_value={"sent": True}) as wa, \
-             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")):
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.channels.openwa.is_enabled", return_value=True):
             runtime.run_bot(self.bot.name, resume_run=self.run, run_reason="approval")
 
         wa.assert_called_once()
@@ -289,3 +291,112 @@ class TestTheEmailLink(FrappeTestCase):
             approve.decide(code="9ZZP", decision="Maybe", token="s3cret-token")
         self.assertEqual(frappe.db.get_value("Baton Approval", self.appr.name, "status"),
                          "Pending")
+
+
+class TestDraftModeApprovalActuallyResumes(FrappeTestCase):
+    """A bot's own send_whatsapp/send_email, drafted because the global send
+    mode is Draft (not because the tool was gated), used to return a plain
+    dict -- so the run never parked, and a human approving the draft later
+    had nothing waiting to resume. The message never actually went out."""
+
+    def setUp(self):
+        from .test_handoff import _settings, _snapshot_settings
+
+        self._before = _snapshot_settings()
+        _settings(ai_enabled=1, whatsapp_send_mode="Draft", email_send_mode="Draft",
+                 quiet_hours_enabled=0, max_messages_per_lead_per_day=0)
+        self.lead = _lead()
+        self.bot = _bot("T Bot Drafter", connectors=("crm_leads", "whatsapp", "email"),
+                        channel="Any")
+
+    def tearDown(self):
+        from .test_handoff import _settings
+
+        _settings(**self._before)
+        _cleanup()
+
+    def test_a_drafted_whatsapp_message_parks_with_the_right_payload(self):
+        script = _replies({"tool": "send_whatsapp", "args": {"message": "hello there"},
+                           "done": False})
+        with patch("baton.bots.runtime.chat_json", side_effect=script), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.channels.openwa.is_enabled", return_value=True):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        doc = frappe.get_doc("Baton Workflow Run", run)
+        self.assertEqual(doc.status, "Waiting")
+        self.assertEqual(doc.waiting_for, "Approval")
+
+        appr = _pending(self.bot) or frappe.get_doc("Baton Approval", frappe.get_all(
+            "Baton Approval", filters={"reference_name": self.lead.name},
+            order_by="creation desc", limit_page_length=1)[0].name)
+        payload = json.loads(appr.payload)
+        self.assertEqual(payload["tool"], "send_whatsapp")
+        self.assertEqual(payload["args"]["message"], "hello there")
+
+    def test_approving_a_drafted_whatsapp_message_actually_sends_it(self):
+        script = _replies({"tool": "send_whatsapp", "args": {"message": "hello there"},
+                           "done": False})
+        with patch("baton.bots.runtime.chat_json", side_effect=script), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.channels.openwa.is_enabled", return_value=True):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        appr = frappe.get_doc("Baton Approval", frappe.get_all(
+            "Baton Approval", filters={"reference_name": self.lead.name},
+            order_by="creation desc", limit_page_length=1)[0].name)
+        approval.resolve(appr, "Approved", by="test")
+
+        resume_script = _replies({"done": True, "summary": "sent"})
+        with patch("baton.bots.runtime.chat_json", side_effect=resume_script), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"sent": True}) as wa:
+            runtime.run_bot(self.bot.name, resume_run=run, run_reason="approval")
+
+        wa.assert_called_once()
+        self.assertEqual(wa.call_args.kwargs["message"], "hello there"[:900])
+        self.assertTrue(wa.call_args.kwargs["skip_draft"])
+
+    def test_approving_a_drafted_email_actually_sends_it(self):
+        self.lead.db_set("email", "lead@example.com")
+        script = _replies({"tool": "send_email",
+                           "args": {"subject": "Following up", "body": "hi there"},
+                           "done": False})
+        with patch("baton.bots.runtime.chat_json", side_effect=script):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        appr = frappe.get_doc("Baton Approval", frappe.get_all(
+            "Baton Approval", filters={"reference_name": self.lead.name},
+            order_by="creation desc", limit_page_length=1)[0].name)
+        payload = json.loads(appr.payload)
+        self.assertEqual(payload["tool"], "send_email")
+        approval.resolve(appr, "Approved", by="test")
+
+        resume_script = _replies({"done": True, "summary": "sent"})
+        with patch("baton.bots.runtime.chat_json", side_effect=resume_script), \
+             patch("frappe.sendmail") as sendmail:
+            runtime.run_bot(self.bot.name, resume_run=run, run_reason="approval")
+
+        sendmail.assert_called_once()
+        self.assertEqual(sendmail.call_args.kwargs["recipients"], ["lead@example.com"])
+
+    def test_rejecting_a_drafted_message_never_sends_it(self):
+        script = _replies({"tool": "send_whatsapp", "args": {"message": "hello there"},
+                           "done": False})
+        with patch("baton.bots.runtime.chat_json", side_effect=script), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.channels.openwa.is_enabled", return_value=True):
+            run = runtime.run_bot(self.bot.name, doc=self.lead)
+
+        appr = frappe.get_doc("Baton Approval", frappe.get_all(
+            "Baton Approval", filters={"reference_name": self.lead.name},
+            order_by="creation desc", limit_page_length=1)[0].name)
+        approval.resolve(appr, "Rejected", by="test")
+
+        resume_script = _replies({"done": True, "summary": "gave up"})
+        with patch("baton.bots.runtime.chat_json", side_effect=resume_script), \
+             patch("baton.workflow.actions.whatsapp.send") as wa:
+            runtime.run_bot(self.bot.name, resume_run=run, run_reason="approval")
+
+        wa.assert_not_called()
