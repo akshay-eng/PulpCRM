@@ -491,10 +491,15 @@ def _book_meeting(ctx, args):
         ctx["vars"].pop("offered_slots", None)
         raise ToolError(f"Could not book it -- {why}. Find free times again and offer new ones.")
 
+    avail_name = chosen.get("availability")
+    google_cal = (frappe.db.get_value("Baton Availability", avail_name, "google_calendar")
+                 if avail_name else None)
     event = booking.confirm(
         held,
         subject=cstr(args.get("subject") or "").strip()
         or f"Call with {doc.get('lead_name') or doc.name}",
+        google_calendar=google_cal,
+        add_video=bool(google_cal),
     )
     log_action("bot.booking", actor_type="AI_AGENT", reference_doctype=doc.doctype,
                reference_name=doc.name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,

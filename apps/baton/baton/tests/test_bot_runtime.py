@@ -294,6 +294,51 @@ class TestBotLoop(FrappeTestCase):
         self.assertIn("no_reply", seen["prompt"])
 
 
+class TestBookMeetingGoogleSync(FrappeTestCase):
+    """book_meeting must pass the chosen slot's own availability through to
+    booking.confirm, the same way a workflow's Book Appointment node does --
+    it used to book a real Event but silently never request a Google sync or
+    Meet link, even when the availability had a calendar configured."""
+
+    def setUp(self):
+        from .test_scheduling import _availability
+
+        self.lead = _lead()
+        self.bot = _bot(connectors=("crm_leads", "calendar"))
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+
+        # A real Google Calendar row demands live Google API settings this site
+        # doesn't have configured; db.set_value bypasses that validate() and is
+        # all book_meeting's own lookup (a plain frappe.db.get_value) needs.
+        self.gcal = "T Bot Google Cal"
+        self.avail = _availability()
+        frappe.db.set_value("Baton Availability", self.avail.name, "google_calendar", self.gcal)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                   "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        frappe.db.rollback()
+
+    def test_a_configured_calendar_is_passed_through_to_confirm(self):
+        tools.execute("find_free_times", {"count": 1}, self.ctx)
+        with patch("baton.scheduling.book.hold", return_value=(object(), None)), \
+             patch("baton.scheduling.book.confirm", return_value="EVT-0001") as mock_confirm:
+            tools.execute("book_meeting", {"slot": "1"}, self.ctx)
+        self.assertEqual(mock_confirm.call_args.kwargs.get("google_calendar"), self.gcal)
+        self.assertTrue(mock_confirm.call_args.kwargs.get("add_video"))
+
+    def test_no_calendar_configured_books_without_google_sync(self):
+        frappe.db.set_value("Baton Availability", self.avail.name, "google_calendar", None)
+        tools.execute("find_free_times", {"count": 1}, self.ctx)
+        with patch("baton.scheduling.book.hold", return_value=(object(), None)), \
+             patch("baton.scheduling.book.confirm", return_value="EVT-0002") as mock_confirm:
+            tools.execute("book_meeting", {"slot": "1"}, self.ctx)
+        self.assertIsNone(mock_confirm.call_args.kwargs.get("google_calendar"))
+        self.assertFalse(mock_confirm.call_args.kwargs.get("add_video"))
+
+
 class TestOffTopicGuard(FrappeTestCase):
     """A reply that doesn't engage the last question gets a scripted redirect
     instead of a full model turn -- and never reaches the model at all."""
