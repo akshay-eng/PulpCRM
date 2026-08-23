@@ -186,6 +186,19 @@ class TestHumanIntervention(PolicyTestCase):
         self.assertFalse(allowed, "AI must be silent after a human replies")
         self.assertIn("HUMAN_ACTIVE", why)
 
+    def test_the_pause_is_visible_as_a_comment_not_only_the_audit_log(self):
+        """A pause nobody can see without knowing to check Baton Action Log
+        is a pause a salesperson will not notice."""
+        lead = _lead()
+        mark_human_intervention("CRM Lead", lead.name, user="Administrator")
+
+        comments = frappe.get_all(
+            "Comment", filters={"reference_doctype": "CRM Lead", "reference_name": lead.name,
+                                "comment_type": "Comment"},
+            fields=["content"])
+        self.assertTrue(comments, "no Comment was left on the Lead's timeline")
+        self.assertIn("paused", comments[0].content.lower())
+
     def test_cooldown_is_configurable(self):
         _settings(human_cooldown_minutes=15)
         lead = _lead()
@@ -306,6 +319,20 @@ class TestCooldownExpiry(PolicyTestCase):
 
         review_expired_cooldowns()
         self.assertEqual(get_state("CRM Lead", lead.name).state, "PAUSED")
+
+    def test_the_transition_is_visible_as_a_comment(self):
+        lead = _lead()
+        mark_human_intervention("CRM Lead", lead.name)
+        before = frappe.db.count("Comment", {"reference_doctype": "CRM Lead",
+                                             "reference_name": lead.name})
+        st = self._expire(lead)
+        st.db_set("resume_policy", "AUTO_RESUME")
+
+        review_expired_cooldowns()
+
+        after = frappe.db.count("Comment", {"reference_doctype": "CRM Lead",
+                                            "reference_name": lead.name})
+        self.assertGreater(after, before)
 
 
 class TestHumanOverrideWins(PolicyTestCase):

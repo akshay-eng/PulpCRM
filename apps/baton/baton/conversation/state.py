@@ -79,7 +79,22 @@ def mark_human_intervention(reference_doctype, reference_name, user=None, reason
                f"cancelled {cancelled['runs']} run(s), {cancelled['approvals']} approval(s)",
         output=cancelled,
     )
+    _comment(reference_doctype, reference_name,
+            f"🤖 AI paused — {st.paused_by} sent a message manually. "
+            f"Resuming around {frappe.utils.format_datetime(st.paused_until)}.")
     return st
+
+
+def _comment(reference_doctype, reference_name, text):
+    """Best-effort note on the record's own timeline, not just Baton Action
+    Log -- a pause a salesperson can only see by knowing to check the audit
+    log is a pause they will not notice. Never lets a comment failure break
+    the state transition it is describing."""
+    try:
+        if frappe.db.exists(reference_doctype, reference_name):
+            frappe.get_doc(reference_doctype, reference_name).add_comment("Comment", text)
+    except Exception:
+        frappe.log_error(title=f"Baton: could not add pause/resume comment on {reference_name}")
 
 
 def cancel_pending_ai_actions(reference_doctype, reference_name, include_reply_waits=True):
@@ -296,5 +311,6 @@ def review_expired_cooldowns(limit=100):
                    reference_doctype=row.reference_doctype,
                    reference_name=row.reference_name,
                    decision=new_state, reason=reason)
+        _comment(row.reference_doctype, row.reference_name, f"🤖 {reason}.")
 
     frappe.db.commit()
