@@ -90,6 +90,9 @@ override_whitelisted_methods = {
     # CRM decides whether to show its WhatsApp tab by looking for an Active
     # Meta account. OpenWA has none, so the tab needs a broader answer.
     "crm.api.whatsapp.is_whatsapp_enabled": "baton.api.whatsapp.is_whatsapp_enabled",
+    # Upstream's "already invited" check has no status filter, so a lapsed
+    # invitation blocks a re-invite silently and forever.
+    "crm.api.invite_by_email": "baton.overrides.crm_invitation.invite_by_email",
 }
 
 override_doctype_class = {
