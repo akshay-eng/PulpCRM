@@ -20,6 +20,11 @@ import LucideFlag from '~icons/lucide/flag'
 import LucideUserCheck from '~icons/lucide/user-check'
 import LucideStickyNote from '~icons/lucide/sticky-note'
 import LucideArrowRightLeft from '~icons/lucide/arrow-right-left'
+import LucidePhone from '~icons/lucide/phone'
+import LucideBookOpen from '~icons/lucide/book-open'
+import LucideSearch from '~icons/lucide/search'
+import LucideCheckCheck from '~icons/lucide/check-check'
+import LucideWrench from '~icons/lucide/wrench'
 
 /** Keyed by both node type and by the catalog's `icon` name. */
 export const ICONS = {
@@ -43,6 +48,26 @@ export const ICONS = {
   'Add Comment': LucideMessageSquareText,
   'Create Note': LucideStickyNote,
   'Convert Lead': LucideArrowRightLeft,
+
+  // A bot's own tool calls, keyed by the tool name a step's Raw JSON names --
+  // distinct from the Title Case keys above, which are workflow node types.
+  send_whatsapp: LucideMessageCircle,
+  send_email: LucideSend,
+  wait_for_reply: LucideMessageSquareDot,
+  find_free_times: LucideCalendarClock,
+  book_meeting: LucideCalendarCheck,
+  add_note: LucideStickyNote,
+  add_comment: LucideMessageSquareText,
+  create_task: LucideCheckCircle,
+  complete_task: LucideCheckCheck,
+  assign_to: LucideUserCheck,
+  convert_lead: LucideArrowRightLeft,
+  log_call: LucidePhone,
+  search_knowledge: LucideBookOpen,
+  search: LucideSearch,
+  list_pages: LucideGlobe,
+  read_page: LucideGlobe,
+  call_url: LucideGlobe,
 
   'git-branch': LucideGitBranch,
   'refresh-cw': LucideRefreshCw,
@@ -68,3 +93,8 @@ export const ICONS = {
 }
 
 export const iconFor = (t) => ICONS[t] || LucideZap
+
+/** A bot's own tool calls fall back to a generic tool icon, not the
+ * lightning bolt a workflow's Trigger node uses -- a plain CRM lookup is
+ * not the same kind of "nothing better to show" as an unrecognised node. */
+export const iconForBotTool = (t) => ICONS[t] || LucideWrench

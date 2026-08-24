@@ -141,13 +141,15 @@
         <button
           v-for="r in runs"
           :key="r.name"
-          class="flex w-full items-center gap-2 border-b border-outline-gray-1 py-2 text-left last:border-0 hover:bg-surface-gray-1"
+          class="flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface-gray-1"
           @click="openRunDetail(r.name)"
         >
-          <Badge :theme="statusTheme(r.status)" variant="subtle">{{ r.status }}</Badge>
-          <span class="text-sm text-ink-gray-7">{{ r.reference_name || '—' }}</span>
-          <span class="ml-auto text-xs text-ink-gray-5">{{ r.creation }}</span>
-          <LucideChevronRight class="h-4 w-4 text-ink-gray-4" />
+          <Badge :theme="statusTheme(r.status)" variant="subtle" class="shrink-0">{{ r.status }}</Badge>
+          <span class="truncate text-sm text-ink-gray-8">{{ r.reference_name || '—' }}</span>
+          <span class="ml-auto shrink-0 text-xs text-ink-gray-5" :title="formatDate(r.creation)">
+            {{ timeAgo(r.creation) }}
+          </span>
+          <LucideChevronRight class="h-4 w-4 shrink-0 text-ink-gray-4" />
         </button>
       </template>
     </template>
@@ -165,6 +167,7 @@ import TriggerPanel from '@/components/Workflow/TriggerPanel.vue'
 import { Breadcrumbs, Button, Badge, Dialog, call, toast } from 'frappe-ui'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { formatDate, timeAgo } from '@/utils'
 import { VueFlow, MarkerType, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
