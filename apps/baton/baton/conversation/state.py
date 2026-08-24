@@ -248,6 +248,30 @@ def _within_quiet_hours(settings):
     return False, ""
 
 
+def quiet_hours_retry_seconds():
+    """Seconds from now until quiet hours end, or None if a send is not
+    currently being held for quiet hours.
+
+    A refusal from can_ai_send() is a human-readable string, not something a
+    caller can schedule a retry from -- this recomputes the same window so a
+    caller that got "Quiet hours (...)" back knows exactly how long to wait
+    before trying again, rather than the refusal being a dead end.
+    """
+    settings = frappe.get_cached_doc("Baton Settings")
+    within, _ = _within_quiet_hours(settings)
+    if not within:
+        return None
+
+    import datetime
+
+    end = _as_time(settings.get("quiet_end"))
+    now = now_datetime()
+    candidate = datetime.datetime.combine(now.date(), end)
+    if candidate <= now:
+        candidate += datetime.timedelta(days=1)
+    return max(int((candidate - now).total_seconds()), 60)
+
+
 def _as_time(value):
     if hasattr(value, "seconds"):  # timedelta from a Time field
         total = int(value.total_seconds())

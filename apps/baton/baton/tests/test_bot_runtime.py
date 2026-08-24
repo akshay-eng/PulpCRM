@@ -294,6 +294,101 @@ class TestBotLoop(FrappeTestCase):
         self.assertIn("no_reply", seen["prompt"])
 
 
+class TestQuietHoursRetry(FrappeTestCase):
+    """A quiet-hours refusal used to be a dead end: the model's only fallback
+    was wait_for_reply, parking on a reply to a message that was never sent.
+    It must now come back as a real timed Park instead, and only for quiet
+    hours specifically -- any other refusal reason still just reports itself."""
+
+    def setUp(self):
+        self.lead = _lead(email="quiet-hours-test@example.com")
+        self.bot = _bot(connectors=("crm_leads", "whatsapp", "email"))
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                   "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_whatsapp_refused_for_quiet_hours_parks_on_a_timer(self):
+        with patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"blocked": True, "skipped": "Quiet hours (22:00:00-08:00:00)"}), \
+             patch("baton.conversation.state.quiet_hours_retry_seconds", return_value=120):
+            result = tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.kind, "Timer")
+        self.assertEqual(result.seconds, 120)
+
+    def test_whatsapp_refused_for_another_reason_is_not_parked(self):
+        with patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"blocked": True, "skipped": "Contact is marked do-not-contact"}):
+            result = tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
+        self.assertNotIsInstance(result, tools.Park)
+        self.assertEqual(result["refused"], "Contact is marked do-not-contact")
+
+    def test_email_refused_for_quiet_hours_parks_on_a_timer(self):
+        with patch("baton.conversation.state.can_ai_send",
+                   return_value=(False, "Auto", "Quiet hours (22:00:00-08:00:00)")), \
+             patch("baton.conversation.state.quiet_hours_retry_seconds", return_value=300):
+            result = tools.execute(
+                "send_email", {"subject": "Hi", "body": "Just checking in."}, self.ctx)
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.kind, "Timer")
+        self.assertEqual(result.seconds, 300)
+
+    def test_email_refused_for_another_reason_is_not_parked(self):
+        with patch("baton.conversation.state.can_ai_send",
+                   return_value=(False, "Auto", "Rate limit reached (5/5 automated messages in 24h)")):
+            result = tools.execute(
+                "send_email", {"subject": "Hi", "body": "Just checking in."}, self.ctx)
+        self.assertNotIsInstance(result, tools.Park)
+        self.assertIn("Rate limit", result["refused"])
+
+
+class TestQuietHoursResume(FrappeTestCase):
+    """Waking from a quiet-hours Timer park is the wait succeeding, not a
+    customer failing to reply -- it must not be reported to the model as
+    'no_reply', which would misdescribe what actually happened."""
+
+    def setUp(self):
+        self.lead = _lead()
+        self.bot = _bot(connectors=("crm_leads", "whatsapp"))
+
+    def tearDown(self):
+        _cleanup()
+
+    def _parked_run(self, waiting_for):
+        run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Waiting",
+            "waiting_for": waiting_for, "resume_node": "__bot__",
+            "reference_doctype": "CRM Lead", "reference_name": self.lead.name,
+            "context": json.dumps({"observations": [], "vars": {}, "turn": 0, "steps_used": 0}),
+        }).insert(ignore_permissions=True)
+        frappe.db.commit()
+        return run
+
+    def test_a_timer_wake_notes_the_wait_is_over_not_no_reply(self):
+        run = self._parked_run("Timer")
+        with patch("baton.bots.runtime.chat_json",
+                   return_value={"done": True, "summary": "done"}) as mock_chat:
+            runtime.run_bot(self.bot.name, resume_run=run.name, run_reason="resume")
+        prompt = mock_chat.call_args.args[0][-1]["content"]
+        self.assertIn("wait is over", prompt.lower())
+        self.assertNotIn("no_reply", prompt)
+
+    def test_a_reply_wake_still_reports_no_reply_on_timeout(self):
+        """The fix must not blur the two cases together -- a real reply
+        timeout still has to say so."""
+        run = self._parked_run("Reply")
+        with patch("baton.bots.runtime.chat_json",
+                   return_value={"done": True, "summary": "done"}) as mock_chat:
+            runtime.run_bot(self.bot.name, resume_run=run.name, run_reason="timeout")
+        prompt = mock_chat.call_args.args[0][-1]["content"]
+        self.assertIn("no_reply", prompt)
+
+
 class TestBookMeetingGoogleSync(FrappeTestCase):
     """book_meeting must pass the chosen slot's own availability through to
     booking.confirm, the same way a workflow's Book Appointment node does --
@@ -364,9 +459,19 @@ class TestBookMeetingVideoLink(FrappeTestCase):
     def test_no_calendar_configured_returns_a_jitsi_video_url(self):
         tools.execute("find_free_times", {"count": 1}, self.ctx)
         out = tools.execute("book_meeting", {"slot": "1"}, self.ctx)
+        # hold() and confirm() both commit -- rollback in tearDown cannot undo
+        # them, and a stray hold blocks that exact slot on every later run.
+        # addCleanup runs after tearDown's rollback, in its own transaction,
+        # so it needs its own explicit commit too or the delete never sticks.
+        def _cleanup_booking():
+            for h in frappe.get_all("Baton Booking Hold",
+                                    filters={"event": out["event"]}, pluck="name"):
+                frappe.delete_doc("Baton Booking Hold", h, force=True, ignore_permissions=True)
+            frappe.delete_doc("Event", out["event"], force=True, ignore_permissions=True)
+            frappe.db.commit()
+
+        self.addCleanup(_cleanup_booking)
         self.assertTrue(out["video_url"].startswith("https://meet.jit.si/"))
-        self.addCleanup(frappe.delete_doc, "Event", out["event"], force=True,
-                        ignore_permissions=True)
 
 
 class TestBookMeetingNotifiesRep(FrappeTestCase):

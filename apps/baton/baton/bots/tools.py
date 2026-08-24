@@ -347,6 +347,21 @@ def _recipient(ctx, connector_id, noun, record_fields, strict=True):
     )
 
 
+def _quiet_hours_retry(why, channel):
+    """A quiet-hours refusal is temporary and exact -- the caller knows precisely
+    when the window lifts, so it gets a real timed retry instead of falling
+    through to wait_for_reply and parking on a reply to a message that was
+    never actually sent (which would just time out uselessly)."""
+    if not why or not why.startswith("Quiet hours"):
+        return None
+    from baton.conversation.state import quiet_hours_retry_seconds
+
+    seconds = quiet_hours_retry_seconds()
+    if not seconds:
+        return None
+    return Park("Timer", seconds, channel=channel)
+
+
 def _send_whatsapp(ctx, args):
     from baton.workflow.actions import whatsapp as wa_action
 
@@ -371,9 +386,13 @@ def _send_whatsapp(ctx, args):
         skip_draft=bool(ctx.get("skip_draft_gate")),
     )
     if outcome.get("blocked"):
+        why = outcome.get("skipped")
+        park = _quiet_hours_retry(why, "WhatsApp")
+        if park:
+            return park
         # A refusal is an answer, not a crash. The bot is told, and can decide to
         # raise a task for a human instead of retrying a send that cannot happen.
-        return {"sent": False, "refused": outcome.get("skipped")}
+        return {"sent": False, "refused": why}
     if outcome.get("drafted"):
         # wa_action.send()'s own draft record carries {"to", "channel"} --
         # enough for a human reviewing it, but bots/approval.py:settle() needs
@@ -430,6 +449,9 @@ def _send_email(ctx, args):
 
     allowed, mode, why = can_ai_send(doc.doctype, doc.name, channel="Email")
     if not allowed:
+        park = _quiet_hours_retry(why, "Email")
+        if park:
+            return park
         return {"sent": False, "refused": why}
 
     # A human already approved this exact email; asking again would loop

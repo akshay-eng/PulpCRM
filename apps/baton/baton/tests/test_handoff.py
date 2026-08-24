@@ -166,6 +166,23 @@ class TestSendGate(PolicyTestCase):
         self.assertFalse(allowed)
         self.assertIn("Quiet hours", why)
 
+    def test_quiet_hours_retry_seconds_is_none_outside_the_window(self):
+        from baton.conversation.state import quiet_hours_retry_seconds
+
+        self.assertIsNone(quiet_hours_retry_seconds())
+
+    def test_quiet_hours_retry_seconds_inside_the_window(self):
+        """A refusal must come with an exact, schedulable retry time -- not
+        just a human-readable reason -- so a caller can wake up on its own
+        rather than waiting on a reply that was never going to arrive."""
+        from baton.conversation.state import quiet_hours_retry_seconds
+
+        _settings(quiet_hours_enabled=1, quiet_start="00:00:00", quiet_end="23:59:59")
+        seconds = quiet_hours_retry_seconds()
+        self.assertIsNotNone(seconds)
+        self.assertGreater(seconds, 0)
+        self.assertLessEqual(seconds, 86400)
+
 
 class TestHumanIntervention(PolicyTestCase):
     def setUp(self):

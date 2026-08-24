@@ -224,6 +224,7 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
 
     if resume_run:
         run = frappe.get_doc("Baton Workflow Run", resume_run)
+        waited_for = run.waiting_for
         state = json.loads(run.context) if run.context else {}
         if doc is None and run.reference_doctype and run.reference_name:
             if frappe.db.exists(run.reference_doctype, run.reference_name):
@@ -270,6 +271,12 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
     elif run_reason == "timeout":
         state.setdefault("observations", []).append(
             {"tool": "wait_for_reply", "result": {"no_reply": "They did not answer in time."}})
+    elif resume_run and waited_for == "Timer":
+        # Not a reply timeout -- the run parked itself on quiet hours (or some
+        # other self-imposed wait) elapsing, which is the wait succeeding, not
+        # failing. Nudge it to pick up exactly where it left off.
+        state.setdefault("observations", []).append(
+            {"tool": "system", "result": {"note": "The wait is over. Continue where you left off."}})
 
     return _loop(bot, run, doc, state, event_payload, dry_run=dry_run)
 
