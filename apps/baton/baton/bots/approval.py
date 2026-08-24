@@ -62,11 +62,48 @@ def _describe(tool_name, args):
     return f"run {tool_name} with:\n\n{pretty}"
 
 
+def _fallback_recipient(doc):
+    """Who to ask when no approval_recipient is configured on the bot.
+
+    Draft-mode sending (the site-wide send-mode setting, not gated_tools)
+    routes here with nothing configured far more often than not -- an admin
+    who turned on "review before sending" was not necessarily the same one
+    who'd think to also fill in an approval recipient. Whoever the record is
+    assigned to is the same person book_meeting's own rep notification
+    already finds, so the request has somewhere to go by default instead of
+    silently landing on nobody.
+    """
+    if not doc:
+        return None, None
+    try:
+        assigned = json.loads(doc.get("_assign") or "[]")
+    except (ValueError, TypeError):
+        assigned = []
+    user = assigned[0] if assigned else None
+    if not user:
+        return None, None
+    number = (frappe.db.get_value("User", user, "mobile_no")
+             or frappe.db.get_value("CRM Telephony Agent", {"user": user}, "mobile_no"))
+    if number:
+        return number, "WhatsApp"
+    return user, "Email"  # a User's docname is their email
+
+
 def request(bot, run, doc, tool_name, args):
     """Raise the question and send it. Returns (approval_name, timeout_hours)."""
     hours = cint(bot.get("approval_timeout_hours")) or DEFAULT_TIMEOUT_HOURS
-    channel = bot.get("approval_channel") or "Email"
+    # "Off" is a real, common value here (it's what a bot with no gated_tools
+    # at all carries) -- valid for the bot's own setting, but not a legal
+    # value on Baton Approval.channel, which only knows Email/WhatsApp.
+    channel = bot.get("approval_channel")
+    if channel == "Off":
+        channel = None
     to = cstr(bot.get("approval_recipient") or "").strip()
+    if not to:
+        fallback_to, fallback_channel = _fallback_recipient(doc)
+        if fallback_to:
+            to, channel = fallback_to, fallback_channel
+    channel = channel or "Email"
 
     approval = frappe.get_doc({
         "doctype": "Baton Approval",

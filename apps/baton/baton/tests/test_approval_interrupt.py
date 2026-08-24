@@ -400,3 +400,82 @@ class TestDraftModeApprovalActuallyResumes(FrappeTestCase):
             runtime.run_bot(self.bot.name, resume_run=run, run_reason="approval")
 
         wa.assert_not_called()
+
+
+class TestApprovalFallbackRecipient(FrappeTestCase):
+    """A drafted send used to create a Baton Approval with nobody notified
+    at all -- approval_channel/approval_recipient are bot-level settings a
+    site using Draft mode for its send-mode, rather than gated_tools, has
+    usually never touched. Whoever the record is assigned to is asked
+    instead, the same person book_meeting's own rep notification already
+    finds -- so a draft has somewhere to go by default."""
+
+    def setUp(self):
+        self.lead = _lead()
+        self.bot = _bot("T Bot Fallback", connectors=("crm_leads",))
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self._original_mobile = frappe.db.get_value("User", "Administrator", "mobile_no")
+
+    def tearDown(self):
+        frappe.db.set_value("User", "Administrator", "mobile_no", self._original_mobile)
+        _cleanup()
+
+    def test_unconfigured_bot_falls_back_to_the_assignee_over_whatsapp(self):
+        """approval_channel defaults to "Off" -- a real, valid value for the
+        bot's own setting, but not one Baton Approval.channel accepts, so
+        this doubles as a regression test for that crash too."""
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", "+919000000001")
+
+        with patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"sent": True}) as wa:
+            name, hours = approval.request(self.bot, self.run, self.lead,
+                                           "send_email", {"subject": "Hi", "body": "hi"})
+
+        appr = frappe.get_doc("Baton Approval", name)
+        self.assertEqual(appr.channel, "WhatsApp")
+        self.assertEqual(appr.sent_to, "+919000000001")
+        wa.assert_called_once()
+        self.assertEqual(wa.call_args.kwargs["to"], "+919000000001")
+
+    def test_an_assignee_with_no_number_falls_back_to_their_email(self):
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", None)
+        agent = frappe.db.get_value("CRM Telephony Agent", {"user": "Administrator"}, "name")
+        if agent:
+            frappe.db.set_value("CRM Telephony Agent", agent, "mobile_no", None)
+
+        with patch("baton.bots.approval._send_email", return_value=True) as send_email:
+            name, hours = approval.request(self.bot, self.run, self.lead,
+                                           "send_email", {"subject": "Hi", "body": "hi"})
+
+        appr = frappe.get_doc("Baton Approval", name)
+        self.assertEqual(appr.channel, "Email")
+        self.assertEqual(appr.sent_to, "Administrator")
+        send_email.assert_called_once()
+
+    def test_no_assignee_still_creates_a_valid_approval_record(self):
+        """Nobody to ask is not a crash -- the approval still stands (an
+        admin can find it in the CRM), it just goes undelivered."""
+        self.lead.db_set("_assign", None)
+        name, hours = approval.request(self.bot, self.run, self.lead,
+                                       "send_email", {"subject": "Hi", "body": "hi"})
+        appr = frappe.get_doc("Baton Approval", name)
+        self.assertEqual(appr.status, "Pending")
+        self.assertIn(appr.channel, ("Email", "WhatsApp"))
+        self.assertFalse(appr.sent_to)
+
+    def test_an_explicitly_configured_recipient_is_not_overridden(self):
+        bot = _guarded(name="T Bot Explicit Approver", to="boss@example.com")
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", "+919000000001")
+
+        with patch("baton.bots.approval._send_email", return_value=True):
+            name, hours = approval.request(bot, self.run, self.lead,
+                                           "send_email", {"subject": "Hi", "body": "hi"})
+
+        appr = frappe.get_doc("Baton Approval", name)
+        self.assertEqual(appr.sent_to, "boss@example.com")
+        self.assertEqual(appr.channel, "Email")

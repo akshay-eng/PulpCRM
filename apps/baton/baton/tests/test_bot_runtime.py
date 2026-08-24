@@ -609,7 +609,41 @@ class TestOffTopicGuard(FrappeTestCase):
 
         doc = frappe.get_doc("Baton Workflow Run", run)
         self.assertEqual(doc.status, "Waiting")
-        self.assertEqual(doc.waiting_for, "Reply")
+
+    def test_a_refusal_with_no_known_question_never_becomes_the_next_question(self):
+        """A run with no memory of what it asked (state["vars"] empty --
+        e.g. a fresh run started to handle a reply, rather than the run
+        that actually asked something) used to store its own refusal text
+        as "the last question", so a second off-topic reply got the
+        refusal quoted back at itself, twice over, in the same message."""
+        run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Waiting",
+            "waiting_for": "Reply", "resume_node": "__bot__",
+            "reference_doctype": "CRM Lead", "reference_name": self.lead.name,
+            "context": json.dumps({"observations": [], "vars": {}, "turn": 0, "steps_used": 0}),
+        }).insert(ignore_permissions=True)
+        frappe.db.commit()
+
+        msg1 = self._inbound_whatsapp("random off topic message one")
+        with patch("baton.bots.guard.chat_json", return_value={"on_topic": False}), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send", return_value={"sent": True}) as send:
+            runtime.run_bot(self.bot.name, resume_run=run.name, inbound_message=msg1.name,
+                            inbound_channel="WhatsApp", run_reason="reply")
+        self.assertEqual(send.call_args.kwargs["message"], runtime.REFUSAL)
+
+        saved = json.loads(frappe.db.get_value("Baton Workflow Run", run.name, "context"))
+        self.assertNotIn("last_question_asked", saved["vars"])
+
+        msg2 = self._inbound_whatsapp("random off topic message two")
+        with patch("baton.bots.guard.chat_json", return_value={"on_topic": False}), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send", return_value={"sent": True}) as send2:
+            runtime.run_bot(self.bot.name, resume_run=run.name, inbound_message=msg2.name,
+                            inbound_channel="WhatsApp", run_reason="reply")
+        second_message = send2.call_args.kwargs["message"]
+        self.assertEqual(second_message, runtime.REFUSAL)
+        self.assertEqual(second_message.count("out of scope"), 1)
 
     def test_an_on_topic_reply_proceeds_to_the_main_loop_normally(self):
         run = self._parked_run()

@@ -457,29 +457,15 @@ def _send_email(ctx, args):
     # A human already approved this exact email; asking again would loop
     # forever rather than ever actually sending it.
     if mode == "Draft" and not ctx.get("skip_draft_gate"):
-        # Goes through the one approval-resolution path (bots/approval.py)
-        # however the answer arrives -- an emailed link or a WhatsApp reply.
-        # payload carries both: to/subject/channel for a human reviewing the
-        # draft, tool/args for settle() to reconstruct what to actually send
-        # once approved.
-        approval = frappe.get_doc({
-            "doctype": "Baton Approval",
-            "kind": "Send Message",
-            "status": "Pending",
-            "draft_text": body,
-            "reference_doctype": doc.doctype,
-            "reference_name": doc.name,
-            "workflow_run": ctx["run"].name,
-            "payload": json.dumps({"to": to, "subject": subject, "channel": "Email",
-                                   "tool": "send_email",
-                                   "args": {"subject": subject, "body": body}}, default=str),
-        }).insert(ignore_permissions=True)
-        log_action("email.draft", actor_type="AI_AGENT", reference_doctype=doc.doctype,
-                   reference_name=doc.name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,
-                   decision="AWAIT_APPROVAL", reason="Draft mode is on for email",
-                   output={"approval": approval.name})
-        hours = cint(ctx["bot"].approval_timeout_hours) or 24
-        return Park("Approval", hours * 3600, channel="Any", approval=approval.name)
+        # The one approval-request path (bots/approval.py) -- it actually
+        # notifies someone (an emailed link, or a WhatsApp code to reply
+        # with), which a hand-rolled Baton Approval insert here used to skip
+        # entirely: the draft sat there with nobody ever told it existed.
+        from baton.bots import approval as bot_approval
+
+        approval_name, hours = bot_approval.request(
+            ctx["bot"], ctx["run"], doc, "send_email", {"subject": subject, "body": body})
+        return Park("Approval", hours * 3600, channel="Any", approval=approval_name)
     try:
         frappe.flags.baton_ai_email = True
         frappe.sendmail(recipients=[to], subject=subject[:200], message=body[:20000],

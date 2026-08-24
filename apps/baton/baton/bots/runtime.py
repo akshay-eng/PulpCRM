@@ -335,7 +335,12 @@ def _screen_off_topic(bot, run, doc, state, event_payload, channel, text):
                    reason="Skipped the main turn; sent the scripted redirect instead.")
 
     state["vars"] = ctx["vars"]
-    state["vars"]["last_question_asked"] = last_q or message
+    # Never store the refusal itself as "the question" -- if last_q was
+    # already unknown, it stays unknown, so the next refusal re-attempts the
+    # Qualification Result fallback instead of quoting this scripted line
+    # back at the customer forever.
+    if last_q:
+        state["vars"]["last_question_asked"] = last_q
     state["turn"] = ctx["turn"]
     _step(run, cint(state.get("steps_used")) + 1, "off-topic redirect", "Success",
          {"tool": "guard", "refused": True, "message": message}, 0)

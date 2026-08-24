@@ -33,6 +33,17 @@ class TestTier0FreePass(FrappeTestCase):
         self.assertTrue(on_topic2)
         mock2.assert_not_called()
 
+    def test_a_greeting_passes_free(self):
+        """A plain "Hello" replying to an open question used to fall through
+        to the model, which had no middle ground between "answers the
+        question" and "off-topic" -- and refused it. The single most common
+        reply a bot ever gets must never risk that."""
+        for text in ("Hello", "hi", "Hey!", "Hii", "hello.", "Thanks"):
+            with patch("baton.bots.guard.chat_json") as mock:
+                on_topic, _ = guard.is_on_topic(text, "What brought you here today?")
+            self.assertTrue(on_topic, text)
+            mock.assert_not_called()
+
 
 class TestModelFallback(FrappeTestCase):
     def test_an_on_topic_free_text_reply_calls_the_model(self):
@@ -41,6 +52,22 @@ class TestModelFallback(FrappeTestCase):
                 "I need it for a wedding website, budget flexible", "What are you after?")
         self.assertTrue(on_topic)
         mock.assert_called_once()
+
+    def test_the_prompt_defaults_to_on_topic_when_unsure(self):
+        """A reply that isn't an outright greeting still reaches the model --
+        this locks in the lenient framing so a future edit can't quietly put
+        back the strict "answers/clarifies/objects or else" framing that
+        misclassified a plain greeting as off-topic."""
+        captured = {}
+
+        def fake_chat_json(messages, **kw):
+            captured["prompt"] = messages[0]["content"]
+            return {"on_topic": True}
+
+        with patch("baton.bots.guard.chat_json", side_effect=fake_chat_json):
+            guard.is_on_topic("not sure yet, still looking around", "What's your budget?")
+        self.assertIn("on_topic: true", captured["prompt"])
+        self.assertIn("CLEARLY", captured["prompt"])
 
     def test_the_model_can_say_off_topic(self):
         with patch("baton.bots.guard.chat_json", return_value={"on_topic": False}):
