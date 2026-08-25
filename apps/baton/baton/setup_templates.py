@@ -35,7 +35,7 @@ def _install(name, description, triggers, nodes):
 
 
 def _install_bot(name, description, instructions, guardrails, connectors, triggers,
-                 channel="WhatsApp", offerings=None):
+                 channel="WhatsApp", offerings=None, nurture_cadence_enabled=0):
     if not frappe.db.table_exists("Baton Bot"):
         print("  ! Baton Bot table missing; run baton.setup_bots.install first")
         return
@@ -62,6 +62,7 @@ def _install_bot(name, description, instructions, guardrails, connectors, trigge
         "enabled": 0,
         "channel": channel,
         "max_steps": 8,
+        "nurture_cadence_enabled": nurture_cadence_enabled,
         "position_x": 420,
         "position_y": 260,
         "connectors": rows,
@@ -145,7 +146,11 @@ def install():
         "plainly and return to the question you were last asking -- do not "
         "just stop there, keep working through the list until you have asked "
         "everything or they ask to be left alone. If they ask to be left "
-        "alone entirely, stop immediately and raise a task for a person.",
+        "alone entirely, stop immediately and raise a task for a person.\n\n"
+        "If they don't reply, you don't need to plan a follow-up schedule "
+        "yourself -- you'll be told exactly when to send a nudge and on "
+        "which channel, in order. Just write the wording for whichever "
+        "attempt you're told you're on.",
         "Never quote a price or promise a delivery date.\n"
         "Never say a meeting is booked unless book_meeting actually succeeded.\n"
         "Keep every message under three sentences.\n"
@@ -164,6 +169,7 @@ def install():
              "trigger_doctype": "CRM Lead"},
         ],
         channel="Any",
+        nurture_cadence_enabled=1,
         offerings="Website design and development — marketing sites, ecommerce, redesigns.\n"
                   "Mobile app development — iOS and Android.\n"
                   "Paid advertising — Google and Meta ad campaigns.",

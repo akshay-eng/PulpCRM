@@ -284,8 +284,21 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
             state.setdefault("observations", []).append(
                 {"tool": "wait_for_reply", "result": {"they_said": cstr(text)[:900]}})
     elif run_reason == "timeout":
-        state.setdefault("observations", []).append(
-            {"tool": "wait_for_reply", "result": {"no_reply": "They did not answer in time."}})
+        if waited_for == "Reply" and bot.get("nurture_cadence_enabled") and doc is not None:
+            # A scripted ladder, not the model's own judgment call: it only
+            # ever composes the wording for the rung it's been placed on.
+            from baton.bots import cadence
+
+            rung, note = cadence.advance(state)
+            if rung is None:
+                summary = cadence.escalate(bot, run, doc, state)
+                _finish(run, "Completed", summary=summary)
+                return run.name
+            state.setdefault("observations", []).append(
+                {"tool": "system", "result": {"cadence_step": note}})
+        else:
+            state.setdefault("observations", []).append(
+                {"tool": "wait_for_reply", "result": {"no_reply": "They did not answer in time."}})
     elif resume_run and waited_for == "Timer":
         # Not a reply timeout -- the run parked itself on quiet hours (or some
         # other self-imposed wait) elapsing, which is the wait succeeding, not

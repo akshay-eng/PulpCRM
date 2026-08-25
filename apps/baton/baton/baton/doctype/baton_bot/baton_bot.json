@@ -22,6 +22,7 @@
   "max_steps",
   "reply_timeout_hours",
   "off_topic_guard_enabled",
+  "nurture_cadence_enabled",
   "sec_approval",
   "approval_channel",
   "approval_recipient",
@@ -138,6 +139,13 @@
    "fieldname": "off_topic_guard_enabled",
    "fieldtype": "Check",
    "label": "Guard against off-topic replies"
+  },
+  {
+   "default": "0",
+   "description": "A no-reply to wait_for_reply follows a fixed, code-driven schedule (WhatsApp nudge, WhatsApp nudge, email, then the assignee is asked to call) instead of leaving the model to freely decide what to do next.",
+   "fieldname": "nurture_cadence_enabled",
+   "fieldtype": "Check",
+   "label": "Follow up on silence with a fixed schedule"
   },
   {
    "fieldname": "sec_conn",
@@ -288,7 +296,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-22 16:43:53.596980",
+ "modified": "2026-08-25 14:10:00.000000",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Bot",

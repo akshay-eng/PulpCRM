@@ -427,6 +427,10 @@ def _send_whatsapp(ctx, args):
     if not message:
         raise ToolError("Nothing to send.")
 
+    pending = (ctx.get("vars") or {}).get("_cadence_pending")
+    if pending and pending.get("channel") != "WhatsApp":
+        raise ToolError("This step is an email step, not WhatsApp -- call send_email instead.")
+
     ok, why = _connected("whatsapp")
     if not ok:
         return {"sent": False, "refused": why}
@@ -484,6 +488,10 @@ def _send_email(ctx, args):
     body = cstr(args.get("body") or "").strip()
     if not subject or not body:
         raise ToolError("An email needs both a subject and a body.")
+
+    pending = (ctx.get("vars") or {}).get("_cadence_pending")
+    if pending and pending.get("channel") != "Email":
+        raise ToolError("This step is a WhatsApp step, not email -- call send_whatsapp instead.")
 
     ok, why = _connected("email")
     if not ok:
@@ -858,6 +866,24 @@ def _call_url(ctx, args):
 
 def _wait_for_reply(ctx, args):
     doc = _subject(ctx)
+
+    # Set by cadence.advance() on the previous timeout -- this wait is for a
+    # reply to the scripted nudge just sent, not the bot's own flat default.
+    pending = (ctx.get("vars") or {}).pop("_cadence_pending", None)
+    if pending:
+        return Park("Reply", cint(pending["wait_seconds"]) or 3600, channel=pending["channel"])
+
+    # The very first wait, right after the bot's own original message --
+    # before any timeout (and so before advance()) has run yet, so there is
+    # no _cadence_pending to consume. Still cadence-governed: without this,
+    # "retry later the same day" would only really happen after a flat
+    # reply_timeout_hours (typically 24h) had already elapsed.
+    if ctx["bot"].get("nurture_cadence_enabled") and not (ctx.get("vars") or {}).get(
+            "followup_attempt"):
+        from baton.bots import cadence
+
+        return Park("Reply", cadence.first_wait_seconds(), channel="WhatsApp")
+
     hours = cint(ctx["bot"].reply_timeout_hours) or 24
     return Park("Reply", hours * 3600, channel=ctx["bot"].channel or "WhatsApp")
 

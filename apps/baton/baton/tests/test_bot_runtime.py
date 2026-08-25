@@ -439,6 +439,159 @@ class TestQuietHoursResume(FrappeTestCase):
         self.assertIn("no_reply", prompt)
 
 
+class TestCadenceChannelGuards(FrappeTestCase):
+    """wait_for_reply draws its duration from the ladder, not the bot's flat
+    default, and a scripted rung's channel is enforced in code -- the model
+    cannot send on the wrong channel for the step it's been placed on."""
+
+    def setUp(self):
+        self.lead = _lead(email="cadence-guard-test@example.com")
+        self.bot = _bot(connectors=("crm_leads", "whatsapp", "email"),
+                        nurture_cadence_enabled=1)
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                   "vars": {}, "turn": 0}
+
+    def tearDown(self):
+        _cleanup()
+
+    def test_the_very_first_wait_uses_the_cadence_duration_not_the_flat_default(self):
+        from baton.bots import cadence
+
+        result = tools.execute("wait_for_reply", {}, self.ctx)
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.seconds, cadence.first_wait_seconds())
+        self.assertEqual(result.channel, "WhatsApp")
+
+    def test_a_bot_without_cadence_enabled_keeps_the_flat_default(self):
+        plain_bot = _bot("T Bot Plain Wait", connectors=("crm_leads", "whatsapp"))
+        ctx = {**self.ctx, "bot": plain_bot}
+        result = tools.execute("wait_for_reply", {}, ctx)
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.seconds, 24 * 3600)
+
+    def test_a_pending_cadence_step_is_consumed_and_popped(self):
+        self.ctx["vars"]["_cadence_pending"] = {"channel": "Email", "wait_seconds": 999}
+        result = tools.execute("wait_for_reply", {}, self.ctx)
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.seconds, 999)
+        self.assertEqual(result.channel, "Email")
+        self.assertNotIn("_cadence_pending", self.ctx["vars"])
+
+    def test_send_whatsapp_is_refused_mid_email_rung(self):
+        self.ctx["vars"]["_cadence_pending"] = {"channel": "Email", "wait_seconds": 3600}
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
+        self.assertIn("email step", str(e.exception))
+
+    def test_send_email_is_refused_mid_whatsapp_rung(self):
+        self.ctx["vars"]["_cadence_pending"] = {"channel": "WhatsApp", "wait_seconds": 3600}
+        with self.assertRaises(tools.ToolError) as e:
+            tools.execute("send_email", {"subject": "Hi", "body": "Checking in."}, self.ctx)
+        self.assertIn("WhatsApp step", str(e.exception))
+
+    def test_a_quiet_hours_repark_leaves_the_pending_rung_untouched(self):
+        """A cadence-driven send that lands inside quiet hours must repark
+        without popping _cadence_pending -- the next wait_for_reply still
+        needs it once the Timer wakes the run back up."""
+        pending = {"channel": "WhatsApp", "wait_seconds": 3600}
+        self.ctx["vars"]["_cadence_pending"] = pending
+        with patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"blocked": True, "skipped": "Quiet hours (22:00:00-08:00:00)"}), \
+             patch("baton.conversation.state.quiet_hours_retry_seconds", return_value=120):
+            result = tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.kind, "Timer")
+        self.assertEqual(self.ctx["vars"]["_cadence_pending"], pending)
+
+
+class TestNurtureCadence(FrappeTestCase):
+    """A no-reply timeout for a nurture_cadence_enabled bot follows a fixed,
+    code-driven ladder -- the model only ever composes wording for the rung
+    it's told it's on, never decides the schedule or when to give up."""
+
+    def setUp(self):
+        self.lead = _lead()
+        self.bot = _bot(connectors=("crm_leads", "whatsapp", "email"),
+                        nurture_cadence_enabled=1)
+
+    def tearDown(self):
+        _cleanup()
+
+    def _parked_run(self, bot, followup_attempt=0):
+        run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": bot.name, "status": "Waiting",
+            "waiting_for": "Reply", "resume_node": "__bot__",
+            "reference_doctype": "CRM Lead", "reference_name": self.lead.name,
+            "context": json.dumps({
+                "observations": [], "turn": 0, "steps_used": 0,
+                "vars": {"followup_attempt": followup_attempt} if followup_attempt else {},
+            }),
+        }).insert(ignore_permissions=True)
+        frappe.db.commit()
+        return run
+
+    def test_first_timeout_gets_a_scripted_nudge_not_a_free_form_no_reply(self):
+        run = self._parked_run(self.bot, followup_attempt=0)
+        with patch("baton.bots.runtime.chat_json",
+                   return_value={"done": True, "summary": "done"}) as mock_chat:
+            runtime.run_bot(self.bot.name, resume_run=run.name, run_reason="timeout")
+        prompt = mock_chat.call_args.args[0][-1]["content"]
+        self.assertIn("Attempt 1 of 3", prompt)
+        self.assertNotIn("no_reply", prompt)
+
+    def test_third_timeout_switches_to_email(self):
+        run = self._parked_run(self.bot, followup_attempt=2)
+        with patch("baton.bots.runtime.chat_json",
+                   return_value={"done": True, "summary": "done"}) as mock_chat:
+            runtime.run_bot(self.bot.name, resume_run=run.name, run_reason="timeout")
+        prompt = mock_chat.call_args.args[0][-1]["content"]
+        self.assertIn("Attempt 3 of 3", prompt)
+        self.assertIn("Switch to email", prompt)
+
+    def test_fourth_timeout_escalates_and_ends_the_run_with_no_model_call(self):
+        run = self._parked_run(self.bot, followup_attempt=3)
+        with patch("baton.bots.runtime.chat_json") as mock_chat, \
+             patch("baton.bots.cadence.escalate", return_value="escalated") as mock_escalate:
+            runtime.run_bot(self.bot.name, resume_run=run.name, run_reason="timeout")
+        mock_chat.assert_not_called()
+        mock_escalate.assert_called_once()
+        saved = frappe.get_doc("Baton Workflow Run", run.name)
+        self.assertEqual(saved.status, "Completed")
+        self.assertEqual(json.loads(saved.context).get("summary"), "escalated")
+
+    def test_a_bot_without_cadence_enabled_still_gets_free_form_no_reply(self):
+        plain_bot = _bot("T Bot Plain Nurture", connectors=("crm_leads", "whatsapp"))
+        run = self._parked_run(plain_bot, followup_attempt=0)
+        with patch("baton.bots.runtime.chat_json",
+                   return_value={"done": True, "summary": "done"}) as mock_chat:
+            runtime.run_bot(plain_bot.name, resume_run=run.name, run_reason="timeout")
+        prompt = mock_chat.call_args.args[0][-1]["content"]
+        self.assertIn("no_reply", prompt)
+
+    def test_a_genuine_reply_resets_the_attempt_counter(self):
+        run = self._parked_run(self.bot, followup_attempt=2)
+        msg = frappe.get_doc({
+            "doctype": "WhatsApp Message", "type": "Incoming", "to": self.lead.mobile_no,
+            "message": "sorry, been busy -- still interested", "content_type": "text",
+            "reference_doctype": "CRM Lead", "reference_name": self.lead.name,
+            "baton_author": "contact",
+        }).insert(ignore_permissions=True)
+        frappe.db.commit()
+
+        with patch("baton.bots.guard.chat_json", return_value={"on_topic": True}), \
+             patch("baton.bots.runtime.chat_json",
+                   return_value={"done": True, "summary": "done"}):
+            runtime.run_bot(self.bot.name, resume_run=run.name, inbound_message=msg.name,
+                            inbound_channel="WhatsApp", run_reason="reply")
+
+        saved = json.loads(frappe.db.get_value("Baton Workflow Run", run.name, "context"))
+        self.assertNotIn("followup_attempt", saved.get("vars", {}))
+
+
 class TestBookMeetingGoogleSync(FrappeTestCase):
     """book_meeting must pass the chosen slot's own availability through to
     booking.confirm, the same way a workflow's Book Appointment node does --
