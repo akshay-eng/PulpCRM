@@ -334,6 +334,33 @@ class TestDraftModeApprovalActuallyResumes(FrappeTestCase):
         self.assertEqual(payload["tool"], "send_whatsapp")
         self.assertEqual(payload["args"]["message"], "hello there")
 
+        # wa_action.send()'s own draft insert carries no code, no token, and
+        # notifies nobody -- finalize_draft() must turn it into a real one.
+        self.assertTrue(appr.code)
+        self.assertTrue(appr.token)
+        self.assertTrue(appr.expires_at)
+
+    def test_a_drafted_whatsapp_message_notifies_the_assignee(self):
+        """The gap that started this: a drafted WhatsApp message used to sit
+        with nobody ever told it existed, exactly like the email path did
+        before it went through bots/approval.py's real request flow."""
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        original_mobile = frappe.db.get_value("User", "Administrator", "mobile_no")
+        frappe.db.set_value("User", "Administrator", "mobile_no", "+919000000002")
+        self.addCleanup(frappe.db.set_value, "User", "Administrator", "mobile_no",
+                        original_mobile)
+
+        script = _replies({"tool": "send_whatsapp", "args": {"message": "hello there"},
+                           "done": False})
+        with patch("baton.bots.runtime.chat_json", side_effect=script), \
+             patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.channels.openwa.is_enabled", return_value=True), \
+             patch("baton.bots.approval._send_whatsapp", return_value=True) as notify_wa:
+            runtime.run_bot(self.bot.name, doc=self.lead)
+
+        notify_wa.assert_called_once()
+        self.assertEqual(notify_wa.call_args.args[2], "+919000000002")
+
     def test_approving_a_drafted_whatsapp_message_actually_sends_it(self):
         script = _replies({"tool": "send_whatsapp", "args": {"message": "hello there"},
                            "done": False})

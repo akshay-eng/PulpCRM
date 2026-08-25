@@ -89,12 +89,11 @@ def _fallback_recipient(doc):
     return user, "Email"  # a User's docname is their email
 
 
-def request(bot, run, doc, tool_name, args):
-    """Raise the question and send it. Returns (approval_name, timeout_hours)."""
-    hours = cint(bot.get("approval_timeout_hours")) or DEFAULT_TIMEOUT_HOURS
-    # "Off" is a real, common value here (it's what a bot with no gated_tools
-    # at all carries) -- valid for the bot's own setting, but not a legal
-    # value on Baton Approval.channel, which only knows Email/WhatsApp.
+def _resolve_recipient(bot, doc):
+    """(to, channel) -- explicit bot config first, the record's assignee
+    otherwise. "Off" is a real, common value for the bot's own setting (it's
+    what a bot with no gated_tools at all carries), but not a legal value on
+    Baton Approval.channel, which only knows Email/WhatsApp."""
     channel = bot.get("approval_channel")
     if channel == "Off":
         channel = None
@@ -103,27 +102,23 @@ def request(bot, run, doc, tool_name, args):
         fallback_to, fallback_channel = _fallback_recipient(doc)
         if fallback_to:
             to, channel = fallback_to, fallback_channel
-    channel = channel or "Email"
+    return to, (channel or "Email")
 
-    approval = frappe.get_doc({
-        "doctype": "Baton Approval",
-        "kind": "Send Message" if tool_name in ("send_whatsapp", "send_email") else "Other",
-        "status": "Pending",
-        "code": _code(),
-        "token": frappe.generate_hash(length=32),
-        "bot": bot.name,
-        "tool_name": tool_name,
-        "channel": channel,
-        "sent_to": to,
-        "draft_text": _describe(tool_name, args)[:2000],
-        "reference_doctype": doc.doctype if doc else None,
-        "reference_name": doc.name if doc else None,
-        "workflow_run": run.name,
-        "expires_at": add_to_date(now_datetime(), hours=hours),
-        # The arguments are stored, not re-asked. Approving means approving
-        # *this* message, not "whatever the bot decides to send next".
-        "payload": json.dumps({"tool": tool_name, "args": args}, default=str),
-    }).insert(ignore_permissions=True)
+
+def notify(approval, bot, run, doc):
+    """Actually tell someone a Baton Approval exists to act on -- a code and
+    a token are not the same thing as anybody being told to use them.
+
+    Split out from request() so a caller that creates its own approval
+    record a different way (wa_action.send()'s own draft path, kept
+    separate deliberately -- it is the one choke point every WhatsApp send
+    goes through, workflow node or bot, and duplicating it here would open
+    a second one) can still get a real notification sent for it, instead of
+    the draft sitting there with nobody ever told it existed.
+    """
+    to, channel = _resolve_recipient(bot, doc)
+    frappe.db.set_value("Baton Approval", approval.name, {"channel": channel, "sent_to": to})
+    approval.channel, approval.sent_to = channel, to
 
     delivered = False
     try:
@@ -143,9 +138,56 @@ def request(bot, run, doc, tool_name, args):
                workflow_run=run.name,
                reference_doctype=doc.doctype if doc else None,
                reference_name=doc.name if doc else None,
-               output={"approval": approval.name, "tool": tool_name,
+               output={"approval": approval.name, "tool": approval.tool_name,
                        "channel": channel, "to": to, "delivered": delivered})
+    return delivered
+
+
+def request(bot, run, doc, tool_name, args):
+    """Raise the question and send it. Returns (approval_name, timeout_hours)."""
+    hours = cint(bot.get("approval_timeout_hours")) or DEFAULT_TIMEOUT_HOURS
+
+    approval = frappe.get_doc({
+        "doctype": "Baton Approval",
+        "kind": "Send Message" if tool_name in ("send_whatsapp", "send_email") else "Other",
+        "status": "Pending",
+        "code": _code(),
+        "token": frappe.generate_hash(length=32),
+        "bot": bot.name,
+        "tool_name": tool_name,
+        "draft_text": _describe(tool_name, args)[:2000],
+        "reference_doctype": doc.doctype if doc else None,
+        "reference_name": doc.name if doc else None,
+        "workflow_run": run.name,
+        "expires_at": add_to_date(now_datetime(), hours=hours),
+        # The arguments are stored, not re-asked. Approving means approving
+        # *this* message, not "whatever the bot decides to send next".
+        "payload": json.dumps({"tool": tool_name, "args": args}, default=str),
+    }).insert(ignore_permissions=True)
+
+    notify(approval, bot, run, doc)
     return approval.name, hours
+
+
+def finalize_draft(approval_name, bot, run, doc, tool_name, args):
+    """Turn a bare Baton Approval -- one wa_action.send() created itself,
+    with no code, no token, and nobody told -- into a real, actionable,
+    notified request. Same end state as request(), for an approval that
+    already exists rather than one this call creates."""
+    approval = frappe.get_doc("Baton Approval", approval_name)
+    hours = cint(bot.get("approval_timeout_hours")) or DEFAULT_TIMEOUT_HOURS
+    approval.tool_name = tool_name
+    approval.payload = json.dumps({"tool": tool_name, "args": args}, default=str)
+    if not approval.code:
+        approval.code = _code()
+    if not approval.token:
+        approval.token = frappe.generate_hash(length=32)
+    if not approval.expires_at:
+        approval.expires_at = add_to_date(now_datetime(), hours=hours)
+    approval.save(ignore_permissions=True)
+
+    notify(approval, bot, run, doc)
+    return hours
 
 
 def _links(approval):

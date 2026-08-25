@@ -394,18 +394,20 @@ def _send_whatsapp(ctx, args):
         # raise a task for a human instead of retrying a send that cannot happen.
         return {"sent": False, "refused": why}
     if outcome.get("drafted"):
-        # wa_action.send()'s own draft record carries {"to", "channel"} --
-        # enough for a human reviewing it, but bots/approval.py:settle() needs
-        # {"tool", "args"} to reconstruct what to actually run on approval.
-        # Overwriting it here, rather than teaching wa_action.send() a second
-        # payload shape a plain workflow node has no use for.
-        frappe.db.set_value("Baton Approval", outcome["drafted"], "payload",
-                            json.dumps({"tool": "send_whatsapp", "args": {"message": message}},
-                                       default=str))
+        # wa_action.send()'s own draft record carries no code, no token, and
+        # notifies nobody -- it exists purely so a plain workflow node has
+        # something to point at. finalize_draft turns it into the same real,
+        # notified request bots/approval.py:request() creates directly,
+        # including the {"tool", "args"} shape settle() needs to reconstruct
+        # what to actually run on approval.
+        from baton.bots import approval as bot_approval
+
+        hours = bot_approval.finalize_draft(
+            outcome["drafted"], ctx["bot"], ctx["run"], doc,
+            "send_whatsapp", {"message": message})
         # A Park, not a dict: without this the run just carries on to another
         # model turn immediately, and a human approving the draft later has
         # nothing waiting to resume -- the message never actually goes out.
-        hours = cint(ctx["bot"].approval_timeout_hours) or 24
         return Park("Approval", hours * 3600, channel="Any", approval=outcome["drafted"])
     return {"sent": True, "to": to}
 
