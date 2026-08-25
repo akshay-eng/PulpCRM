@@ -171,19 +171,33 @@ def install():
 
     _install_bot(
         "Meeting Follow-up",
-        "Wakes once a booked meeting ends and asks the lead how it went.",
+        "Wakes once a booked meeting ends and asks the assigned rep how it went.",
         "You were woken because a meeting with this lead or deal just ended. "
-        "Ask them directly, in one short message, how it went. When they "
-        "answer, update the record's status and write a note based on what "
-        "they say -- do not just thank them and stop.\n\n"
+        "Use ask_assignee to ask whoever the record is assigned to, in one "
+        "short message, how the call went -- not the lead, the rep who was "
+        "actually on it. If nobody is assigned, raise a task and stop.\n\n"
+        "When the assignee answers, write down what they told you with "
+        "add_note, add_comment or create_task as fits, then act on it:\n"
+        "  - Happy path: call convert_lead to turn the lead into a deal.\n"
+        "  - Unhappy path: set the record's status to reflect that it did "
+        "not pan out -- check list_options first for the exact values "
+        "available (a Lead's Lost-type statuses, or a Deal's Lost status). "
+        "A Lead also requires lost_reason whenever you set a Lost-type "
+        "status -- pick the closest match (Pricing, Competition, Budget "
+        "Constraints, etc.) from list_options, and only fall back to "
+        "\"Other\" (with a short lost_notes explaining why) if nothing "
+        "else fits.\n\n"
         "If they don't answer, that's fine; you'll simply have nothing to "
-        "update. Never invent an outcome they didn't tell you.",
-        "Never say the meeting happened a specific way unless the lead told "
-        "you so themselves.\n"
+        "update. Never invent an outcome nobody told you.",
+        "Never say the meeting happened a specific way unless the assignee "
+        "told you so themselves.\n"
+        "Never convert or mark a record lost on a guess -- only on what the "
+        "assignee actually said.\n"
         "Keep the opening message under two sentences.\n"
         "If they ask something out of scope, say so plainly and return to "
         "asking how the meeting went.",
-        ["crm_leads", "crm_deals", "whatsapp", "email", "crm_notes"],
+        ["crm_leads", "crm_deals", "whatsapp", "crm_notes", "crm_tasks",
+         "crm_comments", "crm_field_options"],
         [],  # Driven by scheduling/followup.py:tick, not a trigger of its own.
         channel="Any",
     )

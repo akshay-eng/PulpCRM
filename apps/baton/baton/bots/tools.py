@@ -225,12 +225,25 @@ def _update(ctx, doctype, args):
 
     values, refused = _clean_values(doctype, args.get("values") or {})
     doc = frappe.get_doc(doctype, name)
+    before_status = doc.get("status") if doctype == "CRM Lead" else None
     for k, v in values.items():
         doc.set(k, v)
     doc.save(ignore_permissions=True)
     log_action("bot.update", actor_type="AI_AGENT", reference_doctype=doctype,
                reference_name=name, workflow_run=ctx["run"].name, bot=ctx["bot"].name,
                output={"fields": list(values)})
+
+    # "lead.disqualified" was declared in the event catalogue and never once
+    # emitted -- disqualifying only ever meant "zero the qualification
+    # score" internally. Reads the status doctype's own `type` rather than
+    # hardcoding "Unqualified"/"Junk", the same way _valid_options checks
+    # metadata instead of a fixed list.
+    if doctype == "CRM Lead" and "status" in values and doc.status != before_status:
+        if frappe.db.get_value("CRM Lead Status", doc.status, "type") == "Lost":
+            from baton.events import emit
+
+            emit("lead.disqualified", reference_doctype="CRM Lead", reference_name=name)
+
     result = {"updated": name, "fields": list(values)}
     if refused:
         result["ignored"] = refused

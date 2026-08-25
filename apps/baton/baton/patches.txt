@@ -7,3 +7,4 @@
 baton.patches.v1.bots_are_not_workflows
 baton.patches.v1.relayout_stacked_nodes
 baton.patches.v1.split_crm_operations
+baton.patches.v1.meeting_followup_asks_assignee
