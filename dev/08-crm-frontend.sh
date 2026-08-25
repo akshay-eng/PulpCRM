@@ -27,8 +27,11 @@ git checkout -- $TOUCHED
 git apply "$PATCH"
 echo "+ applied 0001-baton-integration.patch ($(echo "$TOUCHED" | wc -l) files)"
 
-cp -r "$FORK/new-files/frontend/src/." frontend/src/
-echo "+ copied Baton frontend files"
+# The overlay owns user-facing branding as well as Baton's added frontend
+# screens. Copy it from the CRM app root so frontend files, backend metadata,
+# templates, and public brand assets are all applied together.
+cp -r "$FORK/new-files/." .
+echo "+ copied Pulp CRM overlay"
 
 # Rebuilding CRM's bundle takes ~2 minutes, so only do it when the built output
 # is actually older than the Baton frontend sources (or missing entirely).

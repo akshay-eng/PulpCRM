@@ -17,6 +17,8 @@ Adding a provider means adding one adapter below and one Select option on
 """
 
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import frappe
 import requests
@@ -176,6 +178,61 @@ ADAPTERS = {
 # Providers that run locally and therefore need no credential.
 KEYLESS = {"Ollama"}
 
+# Browser-held credentials exist only for the lifetime of the request that
+# carries them. ContextVar keeps a key available to deep workflow/bot calls
+# without putting it in a document, cache, log, job argument, or global shared
+# by another request.
+_client_credential = ContextVar("baton_client_credential", default=None)
+
+
+def _parse_client_credential(raw):
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        if len(raw) > 20_000:
+            raise LLMNotConfigured("The browser credential payload is too large.")
+        try:
+            raw = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            raise LLMNotConfigured("The browser credential is invalid.")
+    if not isinstance(raw, dict):
+        raise LLMNotConfigured("The browser credential is invalid.")
+
+    model_name = str(raw.get("model_name") or "").strip()
+    if not model_name or not frappe.db.exists("Baton AI Model", model_name):
+        raise LLMNotConfigured("The selected browser credential has no matching AI model.")
+
+    cfg = frappe.get_cached_doc("Baton AI Model", model_name)
+    if not cfg.enabled:
+        raise LLMNotConfigured(f"Baton AI Model '{model_name}' is disabled.")
+
+    key = str(raw.get("api_key") or "")
+    if len(key) > 8_192:
+        raise LLMNotConfigured("The browser API key is too large.")
+    if cfg.provider not in KEYLESS and not key:
+        raise LLMNotConfigured(f"'{model_name}' has no API key in this browser.")
+    return {"model_name": model_name, "api_key": key}
+
+
+@contextmanager
+def use_client_credential(raw):
+    """Make a browser key available to model calls during this request only."""
+    credential = _parse_client_credential(raw)
+    if not credential:
+        yield
+        return
+
+    token = _client_credential.set(credential)
+    try:
+        yield
+    finally:
+        _client_credential.reset(token)
+
+
+def client_credential_model():
+    credential = _client_credential.get()
+    return credential["model_name"] if credential else None
+
 
 def _raise_for_status(r, cfg):
     if r.status_code >= 400:
@@ -232,14 +289,19 @@ def chat(messages, purpose=None, want_json=False, temperature=None, max_tokens=N
     if not allow_while_off and not frappe.db.get_single_value("Baton Settings", "ai_enabled"):
         raise LLMNotConfigured("AI is switched off in Baton Settings.")
 
-    cfg = config or get_model_config(purpose)
+    browser_credential = _client_credential.get()
+    cfg = (
+        frappe.get_cached_doc("Baton AI Model", browser_credential["model_name"])
+        if browser_credential
+        else config or get_model_config(purpose)
+    )
     adapter = ADAPTERS.get(cfg.provider)
     if not adapter:
         raise LLMNotConfigured(f"Unknown provider '{cfg.provider}' on Baton AI Model '{cfg.name}'.")
 
     return adapter(
         cfg,
-        _api_key(cfg),
+        browser_credential["api_key"] if browser_credential else _api_key(cfg),
         messages,
         want_json,
         cfg.temperature if temperature is None else temperature,
@@ -321,7 +383,7 @@ def extract_json(raw):
 
 
 @frappe.whitelist()
-def test_model(name):
+def test_model(name, credential=None):
     """Settings-page connectivity check. Returns {ok, message, latency_ms}."""
     import time
 
@@ -329,13 +391,14 @@ def test_model(name):
     cfg = frappe.get_doc("Baton AI Model", name)
     started = time.time()
     try:
-        reply = chat(
-            [{"role": "user", "content": "Reply with exactly: OK"}],
-            config=cfg,
-            max_tokens=16,
-            # Nothing reaches a customer: one throwaway prompt, reply discarded.
-            allow_while_off=True,
-        )
+        with use_client_credential(credential):
+            reply = chat(
+                [{"role": "user", "content": "Reply with exactly: OK"}],
+                config=cfg,
+                max_tokens=16,
+                # Nothing reaches a customer: one throwaway prompt, reply discarded.
+                allow_while_off=True,
+            )
         return {
             "ok": True,
             "message": (reply or "").strip()[:120],

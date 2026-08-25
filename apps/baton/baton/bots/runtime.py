@@ -22,7 +22,7 @@ import time
 import frappe
 from frappe.utils import add_to_date, cint, cstr, now_datetime
 
-from baton.audit import log_action
+from baton.audit import audit_context, log_action
 from baton.bots import tools as bot_tools
 from baton.bots.catalog import BY_ID, tools_for
 from baton.llm import chat_json
@@ -490,7 +490,14 @@ def _loop(bot, run, doc, state, event_payload=None, dry_run=False):
 
         ctx["vars"] = state.get("vars") or {}
         try:
-            result = bot_tools.execute(decision["tool"], decision["args"], ctx)
+            with audit_context(
+                source=f"Bot · {bot.bot_name}",
+                actor_type="AI_AGENT",
+                reason=decision["thought"],
+                bot=bot.name,
+                workflow_run=run.name,
+            ):
+                result = bot_tools.execute(decision["tool"], decision["args"], ctx)
         except bot_tools.ToolError as e:
             # Handed back as an observation rather than failing the run: a bot
             # that corrects a bad argument is worth more than one that dies.

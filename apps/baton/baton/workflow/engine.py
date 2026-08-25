@@ -21,7 +21,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_to_date, cint, get_datetime, now_datetime
 
-from baton.audit import already_done, log_action
+from baton.audit import already_done, audit_context, log_action, record_event
 from baton.conversation.state import can_ai_send
 
 MAX_STEPS = 100  # cycle guard: a graph that loops would otherwise run forever
@@ -465,7 +465,15 @@ def _execute_with_retry(node, context, run, wf, phase="enter"):
     for attempt in range(1, attempts + 1):
         started = time.time()
         try:
-            outcome, next_id = _execute(node, context, run, phase)
+            with audit_context(
+                source=f"Workflow · {wf.workflow_name}",
+                actor_type="AI_AGENT" if node.node_type == "AI Agent" else "SYSTEM",
+                reason=f"Workflow step: {node.label or node.node_type}",
+                workflow=wf.name,
+                workflow_run=run.name,
+                node_id=node.node_id,
+            ):
+                outcome, next_id = _execute(node, context, run, phase)
             outcome["_ms"] = int((time.time() - started) * 1000)
             log_action(
                 f"node.{node.node_type}",
@@ -778,7 +786,25 @@ def _execute(node, context, run, phase="enter"):
             return {"skipped": "no field chosen"}, node.next_node
         if not doc.meta.has_field(field):
             return {"skipped": f"{doc.doctype} has no field '{field}'"}, node.next_node
+        # Preserve the workflow engine's deliberately direct write (builder values
+        # are already validated and older workflows may use values that full form
+        # validation rejects), then explicitly create the audit row db.set_value
+        # would otherwise bypass.
+        before = doc.get(field)
         frappe.db.set_value(doc.doctype, doc.name, field, value)
+        doc.set(field, value)
+        record_event(
+            doc.doctype,
+            doc.name,
+            "updated",
+            changes=[{
+                "field": field,
+                "label": doc.meta.get_label(field) or field,
+                "before": before,
+                "after": value,
+            }],
+            title=doc.get(doc.meta.title_field) if doc.meta.title_field else doc.name,
+        )
         return {"field": field, "value": value}, node.next_node
 
     if kind == "Create Document":

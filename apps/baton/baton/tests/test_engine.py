@@ -266,10 +266,23 @@ class TestAuditTrail(FrappeTestCase):
             _node("u", "Update Field", config={"field": "status", "value": "Contacted"}),
         ])
         run_name = run_workflow("T Audit", doc=lead)
-        rows = frappe.get_all("Baton Action Log", filters={"workflow_run": run_name},
-                              fields=["action", "node_id", "status"])
+        rows = frappe.get_all(
+            "Baton Action Log",
+            filters={"workflow_run": run_name, "action": ["like", "node.%"]},
+            fields=["action", "node_id", "status"],
+        )
         self.assertEqual(len(rows), 2)
         self.assertTrue(all(r.status == "Success" for r in rows))
+        self.assertTrue(
+            frappe.db.exists(
+                "Baton Action Log",
+                {
+                    "workflow_run": run_name,
+                    "action": "record.updated",
+                    "reference_name": lead.name,
+                },
+            )
+        )
 
 
 def tearDownModule():

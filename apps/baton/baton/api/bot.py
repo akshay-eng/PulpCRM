@@ -192,14 +192,16 @@ def _unique_name(wanted):
 
 
 @frappe.whitelist()
-def validate_bot(data):
+def validate_bot(data, browser_model=None):
     """Everything wrong with this bot right now, as the canvas asks."""
     if isinstance(data, str):
         data = json.loads(data)
-    return _problems(data)
+    if browser_model != data.get("ai_model"):
+        browser_model = None
+    return _problems(data, browser_model)
 
 
-def _problems(data):
+def _problems(data, browser_model=None):
     out = []
     connectors = [c for c in (data.get("connectors") or []) if c.get("enabled", 1)]
     ids = [c.get("connector") for c in connectors]
@@ -216,9 +218,15 @@ def _problems(data):
     # connector -- so nothing on the canvas was checking it.
     wanted = data.get("ai_model")
     if wanted and frappe.db.exists("Baton AI Model", wanted):
-        has_key = bool(frappe.utils.password.get_decrypted_password(
-            "Baton AI Model", wanted, "api_key", raise_exception=False)) \
+        has_key = (
+            wanted == browser_model
+            or bool(
+                frappe.utils.password.get_decrypted_password(
+                    "Baton AI Model", wanted, "api_key", raise_exception=False
+                )
+            )
             or frappe.db.get_value("Baton AI Model", wanted, "provider") == "Ollama"
+        )
         if not has_key:
             out.append({"level": "warning", "target": "bot",
                         "message": _("{0} has no API key, so this bot cannot think.")
@@ -401,7 +409,7 @@ def delete_bot(name):
 
 
 @frappe.whitelist()
-def test_bot(name, reference_doctype=None, reference_name=None):
+def test_bot(name, reference_doctype=None, reference_name=None, credential=None):
     """Run the bot without letting it touch anything.
 
     Deliberately not gated on `enabled`: the point of a tester is to try a bot
@@ -426,7 +434,10 @@ def test_bot(name, reference_doctype=None, reference_name=None):
             if latest:
                 doc = frappe.get_doc(subject, latest[0])
 
-    run_name = run_bot(name, doc=doc, run_reason="test", dry_run=True)
+    from baton.llm import use_client_credential
+
+    with use_client_credential(credential):
+        run_name = run_bot(name, doc=doc, run_reason="test", dry_run=True)
     if not run_name:
         return {"ok": False, "message": _("The bot did not start.")}
 

@@ -331,7 +331,11 @@ def get_models():
 
 @frappe.whitelist()
 def save_model(model_name=None, api_key=None, **values):
-    """Create or update one model credential. A blank key keeps the stored one."""
+    """Create or update non-secret model metadata.
+
+    ``api_key`` remains in the signature for compatibility with an older UI,
+    but is deliberately ignored. Pulp keeps new LLM keys in browser storage.
+    """
     _guard()
     if model_name and frappe.db.exists("Baton AI Model", model_name):
         doc = frappe.get_doc("Baton AI Model", model_name)
@@ -342,8 +346,9 @@ def save_model(model_name=None, api_key=None, **values):
     for field in MODEL_FIELDS:
         if field in values and field != "model_name":
             doc.set(field, values[field])
-    if api_key:
-        doc.api_key = api_key
+    # Saving through Pulp also removes a legacy server-held key for this row.
+    # The replacement key travels with interactive requests from localStorage.
+    doc.api_key = None
     doc.save(ignore_permissions=True)
 
     # Exactly one default, or "which model did it use?" has no answer.
@@ -363,11 +368,11 @@ def delete_model(model_name):
 
 
 @frappe.whitelist()
-def test_model(model_name):
+def test_model(model_name, credential=None):
     _guard()
     from baton.llm import test_model as run_test
 
     try:
-        return run_test(model_name)
+        return run_test(model_name, credential=credential)
     except Exception as e:
         return {"ok": False, "error": str(e)[:300]}

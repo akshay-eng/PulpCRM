@@ -1,13 +1,19 @@
 <template>
   <LayoutHeader>
     <template #left-header>
-      <Breadcrumbs :items="[{ label: __('AI Automation'), route: { name: 'Automation' } }]" />
+      <Breadcrumbs
+        :items="[
+          { label: __('AI Automations'), route: { name: 'Automation' } },
+        ]"
+      />
     </template>
   </LayoutHeader>
 
   <div class="flex-1 overflow-y-auto px-6 py-8">
     <div class="mx-auto max-w-3xl">
-      <h1 class="text-2xl font-semibold text-ink-gray-9">{{ __('AI Automation') }}</h1>
+      <h1 class="text-2xl font-semibold text-ink-gray-9">
+        {{ __('AI Automations') }}
+      </h1>
       <p class="mt-1 text-p-base text-ink-gray-6">
         {{ __('Two ways to get work done without doing it yourself.') }}
       </p>
@@ -20,24 +26,34 @@
           @click="$router.push({ name: card.route })"
         >
           <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-gray-2">
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-gray-2"
+            >
               <component :is="card.icon" class="h-5 w-5 text-ink-gray-7" />
             </div>
             <div>
-              <div class="text-lg font-medium text-ink-gray-9">{{ card.title }}</div>
+              <div class="text-lg font-medium text-ink-gray-9">
+                {{ card.title }}
+              </div>
               <div class="text-p-sm text-ink-gray-5">{{ card.count }}</div>
             </div>
           </div>
 
           <p class="mt-3 text-p-base text-ink-gray-7">{{ card.blurb }}</p>
 
-          <div class="mt-3 border-t border-outline-gray-1 pt-3 text-p-sm text-ink-gray-5">
+          <div
+            class="mt-3 border-t border-outline-gray-1 pt-3 text-p-sm text-ink-gray-5"
+          >
             {{ card.example }}
           </div>
 
-          <div class="mt-4 flex items-center gap-1 text-p-sm font-medium text-ink-gray-8">
+          <div
+            class="mt-4 flex items-center gap-1 text-p-sm font-medium text-ink-gray-8"
+          >
             {{ card.cta }}
-            <LucideArrowRight class="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+            <TablerArrowRight
+              class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"
+            />
           </div>
         </button>
       </div>
@@ -47,9 +63,15 @@
         appealing on their own; side by side they are still easy to confuse, and
         picking wrong means rebuilding.
       -->
-      <div class="mt-6 rounded-lg bg-surface-gray-2 px-4 py-3 text-p-sm text-ink-gray-7">
+      <div
+        class="mt-6 rounded-lg bg-surface-gray-2 px-4 py-3 text-p-sm text-ink-gray-7"
+      >
         <b>{{ __('Not sure which?') }}</b>
-        {{ __('If you can write the steps down in order, build a workflow — it does exactly that, every time. If the right next step depends on what the customer says, use a bot and let it decide.') }}
+        {{
+          __(
+            'If you can write the steps down in order, build a workflow — it does exactly that, every time. If the right next step depends on what the customer says, use a bot and let it decide.',
+          )
+        }}
       </div>
     </div>
   </div>
@@ -57,7 +79,7 @@
 
 <script setup>
 /**
- * The landing page for the sidebar's "AI Automation" entry.
+ * The landing page for the sidebar's "AI Automations" entry.
  *
  * Creation used to live in the Settings dialog, which was wrong twice over:
  * nobody looks in Settings to build something, and a canvas cannot live in a
@@ -66,9 +88,11 @@
 import LayoutHeader from '@/components/LayoutHeader.vue'
 import { Breadcrumbs, call } from 'frappe-ui'
 import { ref, computed, onMounted } from 'vue'
-import LucideBot from '~icons/lucide/bot'
-import LucideWorkflow from '~icons/lucide/workflow'
-import LucideArrowRight from '~icons/lucide/arrow-right'
+import {
+  IconRobot as TablerRobot,
+  IconRoute as TablerRoute,
+  IconArrowRight as TablerArrowRight,
+} from '@tabler/icons-vue'
 
 const bots = ref([])
 const workflows = ref([])
@@ -77,21 +101,29 @@ const cards = computed(() => [
   {
     name: 'bots',
     route: 'Bots',
-    icon: LucideBot,
+    icon: TablerRobot,
     title: __('Bots'),
     count: countLabel(bots.value),
-    blurb: __('Brief it, plug in what it is allowed to touch, and let it work out what to do.'),
-    example: __('e.g. answer a new lead, find out what they want, book them in.'),
+    blurb: __(
+      'Brief it, plug in what it is allowed to touch, and let it work out what to do.',
+    ),
+    example: __(
+      'e.g. answer a new lead, find out what they want, book them in.',
+    ),
     cta: __('Open bots'),
   },
   {
     name: 'workflows',
     route: 'Workflows',
-    icon: LucideWorkflow,
+    icon: TablerRoute,
     title: __('Workflows'),
     count: countLabel(workflows.value),
-    blurb: __('Draw the steps. It follows them in order, the same way every time.'),
-    example: __('e.g. when a deal reaches Negotiation, assign it and email the customer.'),
+    blurb: __(
+      'Draw the steps. It follows them in order, the same way every time.',
+    ),
+    example: __(
+      'e.g. when a deal reaches Negotiation, assign it and email the customer.',
+    ),
     cta: __('Open workflows'),
   },
 ])

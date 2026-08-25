@@ -20,15 +20,19 @@ doc_events = {
         "after_insert": [
             "baton.workflow.engine.handle_document_event",
             "baton.bots.runtime.handle_document_event",
+            "baton.audit.record_document_event",
         ],
         "on_update": [
             "baton.workflow.engine.handle_document_event",
             "baton.bots.runtime.handle_document_event",
+            "baton.audit.record_document_event",
         ],
         "on_trash": [
             "baton.workflow.engine.handle_document_event",
             "baton.bots.runtime.handle_document_event",
+            "baton.audit.record_document_event",
         ],
+        "after_rename": "baton.audit.record_document_event",
     },
     # Deliver outbound mail on press, not on the scheduler's 4-minute tick.
     "Baton Bot": {

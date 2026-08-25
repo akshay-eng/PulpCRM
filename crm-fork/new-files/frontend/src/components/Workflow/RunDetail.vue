@@ -144,7 +144,9 @@ const props = defineProps({ run: { type: Object, required: true } })
 defineEmits(['back'])
 
 const statusTheme = (s) =>
-  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[s] || 'blue'
+  ({ Completed: 'green', Failed: 'red', Cancelled: 'gray', Expired: 'orange' })[
+    s
+  ] || 'blue'
 const stepTheme = (s) =>
   ({ Success: 'green', Failed: 'red', Skipped: 'orange' })[s] || 'gray'
 
@@ -161,13 +163,18 @@ const resultClasses = (s) => RESULT_CLASSES[s.status] || 'text-ink-gray-7'
 
 const waitingLabel = computed(
   () =>
-    ({ Reply: __('a reply'), Approval: __('an approval'), Timer: __('a delay') })[
-      props.run.waiting_for
-    ] || __('something'),
+    ({
+      Reply: __('a reply'),
+      Approval: __('an approval'),
+      Timer: __('a delay'),
+    })[props.run.waiting_for] || __('something'),
 )
 
-const logsFor = (nodeId) => (props.run.log || []).filter((l) => l.node_id === nodeId)
-const unattached = computed(() => (props.run.log || []).filter((l) => !l.node_id))
+const logsFor = (nodeId) =>
+  (props.run.log || []).filter((l) => l.node_id === nodeId)
+const unattached = computed(() =>
+  (props.run.log || []).filter((l) => !l.node_id),
+)
 
 const isBot = (step) => step.node_type === 'Bot'
 
