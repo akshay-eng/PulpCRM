@@ -322,6 +322,11 @@ CONNECTORS = [
              "description": "Stop and wait until they answer. Use this after asking "
                             "a question -- do not guess what they will say.",
              "params": []},
+            {"name": "ask_assignee", "label": "Ask the assigned rep",
+             "description": "Message whoever this record is assigned to -- not the "
+                            "contact -- and wait for their reply specifically. For "
+                            "asking a rep something, not the customer.",
+             "params": [{"name": "message", "type": "string", "required": True}]},
         ],
     },
     {

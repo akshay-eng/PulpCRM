@@ -294,6 +294,54 @@ class TestBotLoop(FrappeTestCase):
         self.assertIn("no_reply", seen["prompt"])
 
 
+class TestAskAssignee(FrappeTestCase):
+    """Asking whoever the record is assigned to, and parking specifically
+    on their reply -- not the contact's."""
+
+    def setUp(self):
+        self.lead = _lead()
+        self.bot = _bot(connectors=("crm_leads", "whatsapp"))
+        self.run = frappe.get_doc({
+            "doctype": "Baton Workflow Run", "bot": self.bot.name, "status": "Running",
+        }).insert(ignore_permissions=True)
+        self.ctx = {"bot": self.bot, "run": self.run, "doc": self.lead,
+                   "vars": {}, "turn": 0}
+        self._original_mobile = frappe.db.get_value("User", "Administrator", "mobile_no")
+
+    def tearDown(self):
+        frappe.db.set_value("User", "Administrator", "mobile_no", self._original_mobile)
+        _cleanup()
+
+    def test_sends_to_the_assignee_and_parks_with_their_number_recorded(self):
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", "+919000000003")
+
+        with patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send",
+                   return_value={"sent": True}) as wa:
+            result = tools.execute("ask_assignee", {"message": "How did the call go?"}, self.ctx)
+
+        self.assertIsInstance(result, tools.Park)
+        self.assertEqual(result.kind, "Reply")
+        self.assertEqual(result.waiting_from_number, "+919000000003")
+        self.assertIsNone(wa.call_args.kwargs["doc"])  # not gated as a customer message
+        self.assertEqual(wa.call_args.kwargs["to"], "+919000000003")
+
+    def test_refuses_with_no_assignee(self):
+        self.lead.db_set("_assign", None)
+        with self.assertRaises(tools.ToolError):
+            tools.execute("ask_assignee", {"message": "How did the call go?"}, self.ctx)
+
+    def test_refuses_when_the_assignee_has_no_number(self):
+        self.lead.db_set("_assign", json.dumps(["Administrator"]))
+        frappe.db.set_value("User", "Administrator", "mobile_no", None)
+        agent = frappe.db.get_value("CRM Telephony Agent", {"user": "Administrator"}, "name")
+        if agent:
+            frappe.db.set_value("CRM Telephony Agent", agent, "mobile_no", None)
+        with self.assertRaises(tools.ToolError):
+            tools.execute("ask_assignee", {"message": "How did the call go?"}, self.ctx)
+
+
 class TestQuietHoursRetry(FrappeTestCase):
     """A quiet-hours refusal used to be a dead end: the model's only fallback
     was wait_for_reply, parking on a reply to a message that was never sent.

@@ -368,6 +368,45 @@ def _quiet_hours_retry(why, channel):
     return Park("Timer", seconds, channel=channel)
 
 
+def _ask_assignee(ctx, args):
+    """Send to whoever the record is assigned to, and park waiting for
+    *their* reply specifically -- not the record's own contact.
+
+    Send and park are fused into one call on purpose: a model free to call a
+    separate wait_for_reply afterwards could park with no number recorded at
+    all if it forgot, or a stale one from earlier state.
+
+    doc=None on the send means this skips can_ai_send (quiet hours, turn
+    cap, do-not-contact) -- deliberately, the same as _notify_rep_of_booking
+    already does: those gates protect the lead, not a rep being asked about
+    a call they just had.
+    """
+    doc = _subject(ctx)
+    message = cstr(args.get("message") or "").strip()
+    if not message:
+        raise ToolError("Nothing to send.")
+
+    number = _assignee_number(doc)
+    if not number:
+        raise ToolError("Nobody is assigned to this record with a WhatsApp "
+                        "number on file. Raise a task instead.")
+
+    ok, why = _connected("whatsapp")
+    if not ok:
+        return {"sent": False, "refused": why}
+
+    from baton.workflow.actions import whatsapp as wa_action
+
+    ctx["turn"] += 1
+    outcome = wa_action.send(to=number, message=message[:900], run=ctx["run"],
+                             node=_ShimNode("ask_assignee"), doc=None,
+                             author="ai", turn=ctx["turn"])
+    if not outcome.get("sent"):
+        return {"sent": False, "refused": outcome.get("skipped") or "not sent"}
+    hours = cint(ctx["bot"].reply_timeout_hours) or 24
+    return Park("Reply", hours * 3600, channel="WhatsApp", waiting_from_number=number)
+
+
 def _send_whatsapp(ctx, args):
     from baton.workflow.actions import whatsapp as wa_action
 
@@ -1105,6 +1144,7 @@ def execute(tool_name, args, ctx):
         "add_note": _add_note,
         "send_whatsapp": _send_whatsapp,
         "send_email": _send_email,
+        "ask_assignee": _ask_assignee,
         "find_free_times": _find_free_times,
         "book_meeting": _book_meeting,
         "list_pages": _list_pages,

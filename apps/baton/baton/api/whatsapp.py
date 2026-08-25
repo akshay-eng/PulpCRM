@@ -35,6 +35,18 @@ def on_message(doc, method=None):
         except Exception:
             frappe.log_error(title="Baton: approval reply check failed")
 
+        # Checked before the reference guard below for the same reason as
+        # try_reply above: an assignee's own number essentially never
+        # resolves to a CRM reference, so a run waiting on them specifically
+        # would otherwise never be found.
+        from baton.conversation.parking import resume_waiting_assignee
+
+        try:
+            if resume_waiting_assignee(doc.get("from") or doc.get("from_"), "WhatsApp", doc.name):
+                return
+        except Exception:
+            frappe.log_error(title="Baton: assignee reply check failed")
+
     ref_dt, ref_dn = doc.get("reference_doctype"), doc.get("reference_name")
     if not (ref_dt and ref_dn):
         return

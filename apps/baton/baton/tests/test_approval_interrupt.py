@@ -207,6 +207,25 @@ class TestWhatsAppReplies(FrappeTestCase):
     def test_a_bare_yes_carries_no_code(self):
         self.assertEqual(approval.parse_reply("yes"), ("Approved", None))
 
+    def test_a_long_reply_starting_with_yes_is_not_swallowed_as_approval(self):
+        """A genuine conversational answer -- the kind an assignee gives
+        about how a call went -- must not be misread as a terse decision
+        just because it opens with "yes"."""
+        self.assertEqual(
+            approval.parse_reply("Yes definitely, we should proceed with the proposal"),
+            (None, None))
+
+    def test_a_long_reply_with_a_valid_code_is_still_understood(self):
+        """Length alone isn't disqualifying -- a real code makes it
+        unambiguous regardless of how long the message runs."""
+        decision, code = approval.parse_reply(
+            "Yes I approve this one, the code is 4KDP if you need it")
+        self.assertEqual(decision, "Approved")
+        self.assertEqual(code, "4KDP")
+
+    def test_a_short_uncoded_reply_at_the_boundary_still_works(self):
+        self.assertEqual(approval.parse_reply("yes go ahead"), ("Approved", None))
+
 
 class TestOnlyTheRightPersonCanAnswer(FrappeTestCase):
     def tearDown(self):
