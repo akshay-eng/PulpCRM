@@ -71,7 +71,7 @@ class ToolError(Exception):
 class Park:
     """A tool that means "stop and wait", not "here is your answer"."""
 
-    def __init__(self, kind, seconds, channel=None, approval=None):
+    def __init__(self, kind, seconds, channel=None, approval=None, waiting_from_number=None):
         self.kind = kind
         self.seconds = seconds
         self.channel = channel
@@ -80,6 +80,12 @@ class Park:
         # human's answer resumes the run rather than a draft sitting there
         # forever with nothing watching it.
         self.approval = approval
+        # Set only when the reply expected is from someone who isn't the
+        # record's own contact (an assignee, not the lead) -- resume_on_inbound
+        # matches on reference_doctype/reference_name, which still points at
+        # the record, so a wait like this needs its own, phone-number-based
+        # route back in. See conversation/parking.py:resume_waiting_assignee.
+        self.waiting_from_number = waiting_from_number
 
 
 # ------------------------------------------------------------------ helpers
@@ -570,6 +576,29 @@ def _book_meeting(ctx, args):
     return {"booked": chosen["label"], "event": event, "video_url": video_url}
 
 
+def _assigned_user(doc):
+    """The record's current assignee -- Frappe's own native `_assign` field,
+    not `lead_owner`/`deal_owner`, which stay NULL unless something else
+    syncs them (an Assignment Rule writes here, confirmed via
+    agents/conversion.py:_assigned_user, which reads it for the same
+    reason). The one place this lookup should live; every "who's the rep"
+    caller in this app reuses it rather than re-parsing `_assign` itself."""
+    try:
+        assigned = json.loads(doc.get("_assign") or "[]")
+    except (ValueError, TypeError):
+        assigned = []
+    return assigned[0] if assigned else None
+
+
+def _assignee_number(doc):
+    """The assignee's WhatsApp number, or None if there isn't one on file."""
+    user = _assigned_user(doc)
+    if not user:
+        return None
+    return (frappe.db.get_value("User", user, "mobile_no")
+           or frappe.db.get_value("CRM Telephony Agent", {"user": user}, "mobile_no"))
+
+
 def _notify_rep_of_booking(ctx, doc, chosen, video_url=None):
     """Tell whoever this record is assigned to, on WhatsApp, the moment a
     meeting is actually booked -- an automatic consequence of a successful
@@ -582,19 +611,14 @@ def _notify_rep_of_booking(ctx, doc, chosen, video_url=None):
     notify_owner -- that one fires independently from auto-conversion and
     can happen with no meeting ever booked.
     """
-    try:
-        assigned = json.loads(doc.get("_assign") or "[]")
-    except (ValueError, TypeError):
-        assigned = []
-    user = assigned[0] if assigned else None
+    user = _assigned_user(doc)
     if not user:
         log_action("bot.booking.notify_rep", status="Skipped", actor_type="AI_AGENT",
                    reference_doctype=doc.doctype, reference_name=doc.name,
                    workflow_run=ctx["run"].name, reason="No one is assigned to this record.")
         return
 
-    number = (frappe.db.get_value("User", user, "mobile_no")
-             or frappe.db.get_value("CRM Telephony Agent", {"user": user}, "mobile_no"))
+    number = _assignee_number(doc)
     if not number:
         log_action("bot.booking.notify_rep", status="Skipped", actor_type="AI_AGENT",
                    reference_doctype=doc.doctype, reference_name=doc.name,

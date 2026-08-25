@@ -108,6 +108,13 @@ def cancel_pending_ai_actions(reference_doctype, reference_name, include_reply_w
         "reference_doctype": reference_doctype,
         "reference_name": reference_name,
         "status": "Waiting",
+        # A run waiting on a specific person (an assignee, not this record's
+        # own contact) is a different conversation happening on the same
+        # record -- a human taking over the *lead's* thread, or the lead's
+        # own reply, must not cancel a wait that's actually about the
+        # assignee answering something. Unconditional: neither direction
+        # should touch it.
+        "waiting_from_number": ["is", "not set"],
     }
     if not include_reply_waits:
         # A contact's reply must not cancel the run that parked waiting for it.

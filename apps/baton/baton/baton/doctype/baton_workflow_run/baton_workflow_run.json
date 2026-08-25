@@ -28,6 +28,7 @@
   "waiting_for",
   "waiting_channel",
   "waiting_since",
+  "waiting_from_number",
   "col_wait",
   "resume_node_alt",
   "run_reason",
@@ -166,6 +167,12 @@
    "label": "Waiting since"
   },
   {
+   "description": "Set only when the reply expected is from someone other than the record's own contact (an assignee, not the lead). Resumption matches this against the inbound sender's phone number instead of the CRM reference.",
+   "fieldname": "waiting_from_number",
+   "fieldtype": "Data",
+   "label": "Waiting on reply from"
+  },
+  {
    "fieldname": "col_wait",
    "fieldtype": "Column Break"
   },
@@ -203,7 +210,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-22 16:43:53.863696",
+ "modified": "2026-08-25 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Baton",
  "name": "Baton Workflow Run",

@@ -75,15 +75,12 @@ def _fallback_recipient(doc):
     """
     if not doc:
         return None, None
-    try:
-        assigned = json.loads(doc.get("_assign") or "[]")
-    except (ValueError, TypeError):
-        assigned = []
-    user = assigned[0] if assigned else None
+    from baton.bots.tools import _assigned_user, _assignee_number
+
+    user = _assigned_user(doc)
     if not user:
         return None, None
-    number = (frappe.db.get_value("User", user, "mobile_no")
-             or frappe.db.get_value("CRM Telephony Agent", {"user": user}, "mobile_no"))
+    number = _assignee_number(doc)
     if number:
         return number, "WhatsApp"
     return user, "Email"  # a User's docname is their email
@@ -312,22 +309,33 @@ YES = {"yes", "y", "ok", "okay", "approve", "approved", "go", "send"}
 NO = {"no", "n", "reject", "rejected", "stop", "cancel", "dont", "don't"}
 
 
-def _digits(v):
+def digits(v):
     return "".join(ch for ch in cstr(v) if ch.isdigit())
 
 
-def _same_number(a, b):
+def same_number(a, b):
     """Do these two numbers belong to the same person?
 
     Compared on the last ten digits, because the manager's number is stored as
     someone typed it and comes back from WhatsApp in international form.
     """
-    a, b = _digits(a), _digits(b)
+    a, b = digits(a), digits(b)
     return bool(a) and bool(b) and a[-10:] == b[-10:]
 
 
+UNCODED_REPLY_MAX_WORDS = 3
+
+
 def parse_reply(text):
-    """(decision, code) from a reply like "YES 4KDP", or (None, None)."""
+    """(decision, code) from a reply like "YES 4KDP", or (None, None).
+
+    A reply that opens with "yes"/"no" but runs on for a full sentence --
+    "Yes, went really well, they want a proposal" -- is far more likely a
+    genuine conversational answer than a terse approval decision, so an
+    uncoded bare yes/no is only accepted when the whole message is short.
+    A message that also carries a valid code is unambiguous regardless of
+    length and is always accepted, checked first.
+    """
     words = [w.strip(".,!?:;").lower() for w in cstr(text).split()]
     words = [w for w in words if w]
     if not words:
@@ -345,6 +353,9 @@ def parse_reply(text):
         candidate = w.upper()
         if len(candidate) in (4, 8) and all(c in CODE_ALPHABET for c in candidate):
             return decision, candidate
+
+    if len(words) > UNCODED_REPLY_MAX_WORDS:
+        return None, None
     # A bare "yes" is only unambiguous when exactly one request is outstanding.
     return decision, None
 
@@ -372,7 +383,7 @@ def try_reply(message_doc):
 
     # Only ever act on a request that was sent to *this* number. Without this a
     # lead replying "no" could reject a manager's approval.
-    mine = [p for p in pending if _same_number(p.sent_to, sender)]
+    mine = [p for p in pending if same_number(p.sent_to, sender)]
     if not mine:
         return False
     if not code and len(mine) > 1:

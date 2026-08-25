@@ -198,6 +198,7 @@ def _park(run, park, state):
         "waiting_for": park.kind,
         "waiting_channel": park.channel or "Any",
         "waiting_since": now_datetime(),
+        "waiting_from_number": getattr(park, "waiting_from_number", None),
         "resume_at": add_to_date(now_datetime(), seconds=park.seconds),
         "resume_node": "__bot__",
         "resume_node_alt": None,
@@ -211,7 +212,8 @@ def _park(run, park, state):
 
 def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
             run_reason="manual", event_payload=None, resume_run=None,
-            inbound_message=None, inbound_channel=None, dry_run=False, since=None):
+            inbound_message=None, inbound_channel=None, inbound_from_assignee=False,
+            dry_run=False, since=None):
     """Start a bot, or continue one that was waiting. Returns the run name."""
     bot = frappe.get_doc("Baton Bot", bot_name)
     if not bot.enabled and run_reason not in ("test", "manual"):
@@ -231,7 +233,7 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
                 doc = frappe.get_doc(run.reference_doctype, run.reference_name)
         frappe.db.set_value("Baton Workflow Run", run.name, {
             "status": "Running", "resume_at": None, "resume_node": None,
-            "waiting_for": None, "waiting_channel": None,
+            "waiting_for": None, "waiting_channel": None, "waiting_from_number": None,
         })
         run.reload()
     else:
@@ -261,13 +263,26 @@ def run_bot(bot_name, doc=None, reference_doctype=None, reference_name=None,
         channel = inbound_channel or bot.channel or "WhatsApp"
         text, _ = message_text_and_time(channel, inbound_message)
 
-        if text and bot.get("off_topic_guard_enabled", 1) and not dry_run:
+        # The off-topic guard's redirect send goes through _send_whatsapp,
+        # which addresses the record's own contact -- for a reply from the
+        # assignee that would fire the scripted refusal at the lead's own
+        # number, not the assignee's. Skipped entirely for this path, not
+        # just for its own sake: the guard was built for a customer who
+        # might be steering the conversation off-script, not a rep giving
+        # free-form notes about a call they just had.
+        if text and bot.get("off_topic_guard_enabled", 1) and not dry_run \
+                and not inbound_from_assignee:
             refused = _screen_off_topic(bot, run, doc, state, event_payload, channel, text)
             if refused:
                 return run.name
 
-        state.setdefault("observations", []).append(
-            {"tool": "wait_for_reply", "result": {"they_said": cstr(text)[:900]}})
+        if inbound_from_assignee:
+            state.setdefault("observations", []).append(
+                {"tool": "ask_assignee", "result": {"assignee_said": cstr(text)[:900]}})
+        else:
+            state.setdefault("vars", {}).pop("followup_attempt", None)
+            state.setdefault("observations", []).append(
+                {"tool": "wait_for_reply", "result": {"they_said": cstr(text)[:900]}})
     elif run_reason == "timeout":
         state.setdefault("observations", []).append(
             {"tool": "wait_for_reply", "result": {"no_reply": "They did not answer in time."}})
