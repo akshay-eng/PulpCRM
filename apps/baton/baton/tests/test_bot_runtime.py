@@ -313,7 +313,8 @@ class TestQuietHoursRetry(FrappeTestCase):
         _cleanup()
 
     def test_whatsapp_refused_for_quiet_hours_parks_on_a_timer(self):
-        with patch("baton.workflow.actions.whatsapp.send",
+        with patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send",
                    return_value={"blocked": True, "skipped": "Quiet hours (22:00:00-08:00:00)"}), \
              patch("baton.conversation.state.quiet_hours_retry_seconds", return_value=120):
             result = tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
@@ -322,7 +323,8 @@ class TestQuietHoursRetry(FrappeTestCase):
         self.assertEqual(result.seconds, 120)
 
     def test_whatsapp_refused_for_another_reason_is_not_parked(self):
-        with patch("baton.workflow.actions.whatsapp.send",
+        with patch("baton.bots.catalog._whatsapp_ready", return_value=(True, "OpenWA")), \
+             patch("baton.workflow.actions.whatsapp.send",
                    return_value={"blocked": True, "skipped": "Contact is marked do-not-contact"}):
             result = tools.execute("send_whatsapp", {"message": "hi"}, self.ctx)
         self.assertNotIsInstance(result, tools.Park)
