@@ -127,14 +127,18 @@
       <div class="mb-1.5 text-p-sm font-medium text-ink-gray-7">
         {{ __('What this lets the bot do') }}
       </div>
-      <div v-for="t in spec.tools" :key="t.name" class="flex gap-2 py-1">
-        <LucideDot class="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-gray-4" />
-        <div>
+      <div v-for="t in spec.tools" :key="t.name" class="flex items-start gap-2 py-1.5">
+        <div class="min-w-0 flex-1">
           <div class="text-p-base text-ink-gray-8">{{ t.label || t.name }}</div>
           <div class="text-p-sm leading-snug text-ink-gray-5">
             {{ t.description }}
           </div>
         </div>
+        <Switch
+          class="mt-0.5 shrink-0"
+          :model-value="toolEnabled(t.name)"
+          @update:model-value="setToolEnabled(t.name, $event)"
+        />
       </div>
     </div>
 
@@ -164,7 +168,6 @@ import { connectorIcon } from './connectorIcons'
 import LucideCheckCircle from '~icons/lucide/check-circle'
 import LucideTriangleAlert from '~icons/lucide/triangle-alert'
 import LucideArrowUpRight from '~icons/lucide/arrow-up-right'
-import LucideDot from '~icons/lucide/dot'
 
 const props = defineProps({
   node: { type: Object, required: true },
@@ -193,5 +196,17 @@ function openSettings() {
   activeSettingsPage.value =
     SETTINGS_PAGE[props.spec.credential?.id] || 'AI models'
   showSettings.value = true
+}
+
+// Absent from disabled_tools means on -- matches the backend's own reading
+// in bots/tools.py:execute(), so a connector saved before this UI existed
+// still shows every tool switched on rather than guessing wrong.
+const toolEnabled = (name) => !(props.node.disabled_tools || []).includes(name)
+
+function setToolEnabled(name, enabled) {
+  const off = new Set(props.node.disabled_tools || [])
+  if (enabled) off.delete(name)
+  else off.add(name)
+  props.node.disabled_tools = [...off]
 }
 </script>
