@@ -19,7 +19,7 @@ export function getSettings() {
     const configuredName = settings.value?.brand_name?.trim()
     brand.name =
       !configuredName || /frappe|twenty|^20$/i.test(configuredName)
-        ? 'Pulp'
+        ? 'Baton'
         : configuredName
     brand.logo = settings.value?.brand_logo
     brand.favicon =

@@ -21,7 +21,7 @@
           "
         >
           <div class="text-base-medium leading-none text-ink-gray-9 truncate">
-            {{ __(brand.name || 'Pulp') }}
+            {{ __(brand.name || 'Baton') }}
           </div>
           <div class="mt-1 text-sm leading-none text-ink-gray-7 truncate">
             {{ user.full_name }}
@@ -177,7 +177,7 @@ function deskApp() {
   return {
     name: 'frappe',
     logo: '/assets/crm/images/pulp-orange.png',
-    title: __('Pulp Admin'),
+    title: __('Baton Admin'),
     route: '/desk',
   }
 }

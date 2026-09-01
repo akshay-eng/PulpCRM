@@ -1,5 +1,5 @@
 <template>
-  <img :src="logoUrl" alt="Pulp" class="object-contain" />
+  <img :src="logoUrl" alt="Baton" class="object-contain" />
 </template>
 
 <script setup>

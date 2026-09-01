@@ -2,7 +2,7 @@
   <div v-if="brand?.logo">
     <img
       :src="brand.logo"
-      :alt="brand.name || 'Pulp'"
+      :alt="brand.name || 'Baton'"
       class="h-full w-full object-contain"
     />
   </div>

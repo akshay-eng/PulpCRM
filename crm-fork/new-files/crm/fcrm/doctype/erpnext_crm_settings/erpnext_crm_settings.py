@@ -127,7 +127,7 @@ class ERPNextCRMSettings(Document):
 				{
 					"fieldname": "crm_deal",
 					"fieldtype": "Data",
-					"label": "Pulp Deal",
+					"label": "Baton Deal",
 					"read_only": 1,
 					"insert_after": "party_name",
 				}
@@ -137,7 +137,7 @@ class ERPNextCRMSettings(Document):
 				{
 					"fieldname": "crm_deal",
 					"fieldtype": "Data",
-					"label": "Pulp Deal",
+					"label": "Baton Deal",
 					"read_only": 1,
 					"insert_after": "prospect_name",
 				}
@@ -155,8 +155,8 @@ class ERPNextCRMSettings(Document):
 			)
 			frappe.msgprint(
 				_(
-					"Could not create the Pulp custom fields on {0} automatically. "
-					"If it is running the latest ERPNext, enable <b>Pulp Data Synchronization</b> "
+					"Could not create the Baton custom fields on {0} automatically. "
+					"If it is running the latest ERPNext, enable <b>Baton Data Synchronization</b> "
 					"in its CRM Settings, Otherwise check the Error Log."
 				).format(self.erpnext_site_url),
 				title=_("ERPNext custom fields not created"),

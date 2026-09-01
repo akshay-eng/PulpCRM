@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildExportUrl } from '../../src/utils/chatActions'
 
-describe('Ask Pulp exports', () => {
+describe('Ask Baton exports', () => {
   it('uses the existing permission-aware report export endpoint', () => {
     const url = buildExportUrl({
       doctype: 'CRM Lead',

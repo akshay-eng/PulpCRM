@@ -66,7 +66,7 @@
           v-model="template.subject"
           size="md"
           :label="__('Subject')"
-          :placeholder="__('Payment Reminder from Pulp - (#{{ name }})')"
+          :placeholder="__('Payment Reminder from Baton - (#{{ name }})')"
           :required="true"
         />
       </div>
@@ -93,7 +93,7 @@
           :rows="10"
           :placeholder="
             __(
-              '<p>Dear {{ lead_name }},</p>\n\n<p>This is a reminder for the payment of {{ grand_total }}.</p>\n\n<p>Thanks,</p>\n<p>Pulp</p>',
+              '<p>Dear {{ lead_name }},</p>\n\n<p>This is a reminder for the payment of {{ grand_total }}.</p>\n\n<p>Thanks,</p>\n<p>Baton</p>',
             )
           "
         />
@@ -109,7 +109,7 @@
             :content="template.response"
             :placeholder="
               __(
-                'Dear {{ lead_name }}, \n\nThis is a reminder for the payment of {{ grand_total }}. \n\nThanks, \nPulp',
+                'Dear {{ lead_name }}, \n\nThis is a reminder for the payment of {{ grand_total }}. \n\nThanks, \nBaton',
               )
             "
             @change="(val) => (template.response = val)"

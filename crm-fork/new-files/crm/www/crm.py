@@ -15,7 +15,7 @@ def get_context():
 	from crm.api import check_app_permission
 
 	if not check_app_permission():
-		frappe.throw(_("You do not have permission to access Pulp"), frappe.PermissionError)
+		frappe.throw(_("You do not have permission to access Baton"), frappe.PermissionError)
 
 	frappe.db.commit()
 	context = frappe._dict()

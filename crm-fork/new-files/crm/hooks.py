@@ -1,11 +1,11 @@
 app_name = "crm"
-app_title = "Pulp"
+app_title = "Baton"
 app_publisher = "Pulp Labs"
 app_description = "AI-powered sales workspace"
 app_email = "hello@pulplabs.ai"
 app_license = "AGPLv3"
 app_icon_url = "/assets/crm/images/pulp-orange.png"
-app_icon_title = "Pulp"
+app_icon_title = "Baton"
 app_icon_route = "/crm"
 
 # Apps
@@ -16,7 +16,7 @@ add_to_apps_screen = [
 	{
 		"name": "crm",
 		"logo": "/assets/crm/images/pulp-orange.png",
-		"title": "Pulp",
+		"title": "Baton",
 		"route": "/crm",
 		"has_permission": "crm.api.check_app_permission",
 	}

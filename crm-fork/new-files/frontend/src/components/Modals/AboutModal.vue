@@ -5,7 +5,7 @@
         <div class="flex justify-center">
           <div class="flex flex-col items-center">
             <CRMLogo class="mb-3 size-12" />
-            <h3 class="text-2xl-semibold text-ink-gray-9">Pulp</h3>
+            <h3 class="text-2xl-semibold text-ink-gray-9">Baton</h3>
             <p class="mt-1 text-p-sm text-ink-gray-5">by Pulp Labs</p>
           </div>
         </div>

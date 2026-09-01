@@ -27,7 +27,7 @@ class CRMTwilioSettings(Document):
 		twiml_sid: DF.Data | None
 	# end: auto-generated types
 
-	friendly_resource_name = "Pulp"  # System creates TwiML app & API keys with this name.
+	friendly_resource_name = "Baton"  # System creates TwiML app & API keys with this name.
 
 	def validate(self):
 		old_account_sid = frappe.db.get_single_value("CRM Twilio Settings", "account_sid")

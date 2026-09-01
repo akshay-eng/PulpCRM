@@ -24,7 +24,7 @@
             <div class="mt-0.5 text-p-sm text-ink-gray-6">
               {{
                 __(
-                  'Pulp stores API keys in your browser, never in its database. The same keys are available in Ask, Bot tests, and Workflow tests on this browser.',
+                  'Baton stores API keys in your browser, never in its database. The same keys are available in Ask, Bot tests, and Workflow tests on this browser.',
                 )
               }}
             </div>
@@ -208,7 +208,7 @@
                 type="password"
                 :label="__('API key (this browser only)')"
                 :description="
-                  __('Visible to every Pulp AI surface in this browser.')
+                  __('Visible to every Baton AI surface in this browser.')
                 "
               />
               <div>

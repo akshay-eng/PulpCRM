@@ -18,12 +18,12 @@ export default defineConfig(async ({ mode }) => {
         },
         manifest: {
           display: 'standalone',
-          name: 'Pulp',
-          short_name: 'Pulp',
+          name: 'Baton',
+          short_name: 'Baton',
           theme_color: '#f97316',
           background_color: '#fff7ed',
           start_url: '/crm',
-          description: 'Pulp — your AI-powered sales workspace.',
+          description: 'Baton — your AI-powered sales workspace.',
           icons: [
             {
               src: '/assets/crm/images/pulp-orange-192.png',

@@ -22,14 +22,14 @@
           <div
             class="flex h-12 items-center rounded-lg"
             :class="isCollapsed ? 'justify-center px-1' : 'px-2'"
-            :title="isCollapsed ? __(brand.name || 'Pulp') : undefined"
+            :title="isCollapsed ? __(brand.name || 'Baton') : undefined"
           >
             <BrandLogo v-model="brand" class="size-8 shrink-0" />
             <div v-if="!isCollapsed" class="ml-2 min-w-0 flex-1 text-left">
               <div
                 class="truncate text-base-medium leading-none text-ink-gray-9"
               >
-                {{ __(brand.name || 'Pulp') }}
+                {{ __(brand.name || 'Baton') }}
               </div>
               <div class="mt-1 truncate text-sm leading-none text-ink-gray-6">
                 {{ currentUser.full_name || user }}
@@ -43,11 +43,11 @@
         <button
           class="pulp-ask-button mt-3"
           :class="{ 'pulp-ask-button--collapsed': isCollapsed }"
-          :title="__('Ask Pulp')"
+          :title="__('Ask Baton')"
           @click="toggleAskPanel"
         >
           <TablerSparkles class="size-4 shrink-0" />
-          <span v-if="!isCollapsed" class="truncate">{{ __('Ask Pulp') }}</span>
+          <span v-if="!isCollapsed" class="truncate">{{ __('Ask Baton') }}</span>
           <span
             v-if="!isCollapsed && askPanelOpen"
             class="ml-auto size-1.5 rounded-full bg-white"
@@ -833,7 +833,7 @@ const articles = ref([
     ],
   },
   {
-    title: __('Pulp mobile'),
+    title: __('Baton mobile'),
     opened: false,
     subArticles: [
       { name: 'mobile-app-installation', title: __('Mobile App Installation') },

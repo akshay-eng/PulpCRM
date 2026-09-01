@@ -7,7 +7,7 @@ import LogoSparkpost from '../../../public/images/sparkpost.webp'
 import LogoYahoo from '../../../public/images/yahoo.png'
 import LogoYandex from '../../../public/images/yandex.png'
 
-const PulpMailLogo = '/assets/crm/images/pulp-orange.png'
+const BatonMailLogo = '/assets/crm/images/pulp-orange.png'
 
 const fixedFields = [
   {
@@ -155,10 +155,10 @@ export const services = [
   },
   {
     name: 'Frappe Mail',
-    label: 'Pulp Mail',
-    icon: PulpMailLogo,
+    label: 'Baton Mail',
+    icon: BatonMailLogo,
     info: __(
-      'Setting up Pulp Mail requires an API key and API secret for your email account. Read more',
+      'Setting up Baton Mail requires an API key and API secret for your email account. Read more',
     ),
     link: 'https://pulplabs.ai',
     custom: true,
@@ -172,11 +172,11 @@ export const emailIcon = {
   SparkPost: LogoSparkpost,
   Yahoo: LogoYahoo,
   Yandex: LogoYandex,
-  'Frappe Mail': PulpMailLogo,
+  'Frappe Mail': BatonMailLogo,
 }
 
 export function providerLabel(service) {
-  return service === 'Frappe Mail' ? 'Pulp Mail' : service
+  return service === 'Frappe Mail' ? 'Baton Mail' : service
 }
 
 export function validateInputs(state, isCustom) {

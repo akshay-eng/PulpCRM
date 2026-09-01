@@ -9,7 +9,7 @@
       <div class="flex items-center gap-2">
         <TablerSparkles class="h-4 w-4 text-orange-500" />
         <span class="text-base font-medium text-ink-gray-8">{{
-          __('Ask Pulp')
+          __('Ask Baton')
         }}</span>
       </div>
       <div class="flex items-center gap-1">
@@ -23,7 +23,7 @@
         </Button>
         <button
           class="rounded-md p-1 text-ink-gray-5 hover:bg-surface-gray-2 hover:text-ink-gray-8"
-          :aria-label="__('Close Ask Pulp')"
+          :aria-label="__('Close Ask Baton')"
           @click="close"
         >
           <TablerX class="h-4 w-4" />
@@ -82,7 +82,7 @@
             <p class="mt-1 text-xs leading-5 text-ink-gray-6">
               {{
                 __(
-                  'Your key stays in this browser. Pulp sends it only with the AI request and never stores it on the server.',
+                  'Your key stays in this browser. Baton sends it only with the AI request and never stores it on the server.',
                 )
               }}
             </p>
@@ -308,7 +308,7 @@
           :disabled="!hasReadyCredential"
           :placeholder="
             hasReadyCredential
-              ? __('Ask Pulp to find or update CRM data…')
+              ? __('Ask Baton to find or update CRM data…')
               : __('Configure an AI key to start…')
           "
           class="max-h-28 flex-1 resize-none bg-transparent text-sm text-ink-gray-8 placeholder:text-ink-gray-4 focus:outline-none disabled:cursor-not-allowed"
@@ -348,7 +348,7 @@
           <TablerAlertTriangle class="mt-0.5 size-5 shrink-0 text-ink-red-4" />
           <div>
             <div class="text-sm font-medium text-ink-gray-9">
-              {{ __('Ask Pulp will make changes immediately') }}
+              {{ __('Ask Baton will make changes immediately') }}
             </div>
             <p class="mt-1 text-xs leading-5 text-ink-gray-6">
               {{
@@ -612,7 +612,7 @@ async function ask(text) {
         error.messages?.[0] ||
         error.exc_type ||
         error.message ||
-        __('Something went wrong while asking Pulp.'),
+        __('Something went wrong while asking Baton.'),
     })
   } finally {
     busy.value = false
