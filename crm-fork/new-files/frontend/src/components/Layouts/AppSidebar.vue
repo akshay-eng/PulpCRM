@@ -749,6 +749,13 @@ onMounted(async () => {
   })
 
   setUp(filteredSteps)
+
+  // setUp() force-opens the help drawer whenever onboarding is unfinished
+  // (frappe-ui/frappe/Onboarding/onboarding.js sets showHelpModal =
+  // !isOnboardingStepsCompleted). That lands as an empty panel covering the
+  // right of every page on load. It is a one-shot assignment, not a watcher,
+  // so closing it straight after leaves the Help button toggling normally.
+  showHelpModal.value = false
 })
 
 // help center
